@@ -1,0 +1,29 @@
+name: unsafe GitHub token references
+
+on:
+  pull_request:
+
+jobs:
+  dot-token:
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - run: make test
+
+  bracket-token:
+    env:
+      GH_TOKEN: ${{ github[token] }}
+    steps:
+      - run: make test
+
+  single-quoted-token:
+    env:
+      GH_TOKEN: "${{ github['token'] }}"
+    steps:
+      - run: make test
+
+  double-quoted-token:
+    env:
+      GH_TOKEN: '${{ github["token"] }}'
+    steps:
+      - run: make test

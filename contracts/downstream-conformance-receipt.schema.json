@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Beamfall/plugin-sdk/blob/main/contracts/downstream-conformance-receipt.schema.json",
+  "title": "Beamfall downstream plugin conformance receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "consumer",
+    "repository",
+    "sdk_sha",
+    "consumer_sha",
+    "workflow_path",
+    "workflow_event",
+    "workflow_run_id",
+    "workflow_run_attempt",
+    "workflow_run_url",
+    "workflow_run_conclusion",
+    "canonical_job_name",
+    "canonical_job_id",
+    "canonical_job_conclusion",
+    "dispatched_at",
+    "completed_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "consumer": {
+      "enum": [
+        "adult",
+        "audiobook",
+        "enrichment",
+        "familyarchive",
+        "filmtv",
+        "music",
+        "photos",
+        "podcasts"
+      ]
+    },
+    "repository": {
+      "pattern": "^Beamfall/plugin-(adult|audiobook|enrichment|familyarchive|filmtv|music|photos|podcasts)$",
+      "type": "string"
+    },
+    "sdk_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "consumer_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "workflow_path": {
+      "const": ".github/workflows/conformance.yml"
+    },
+    "workflow_event": {
+      "const": "workflow_dispatch"
+    },
+    "workflow_run_id": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "workflow_run_attempt": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "workflow_run_url": {
+      "format": "uri",
+      "type": "string"
+    },
+    "workflow_run_conclusion": {
+      "const": "success"
+    },
+    "canonical_job_name": {
+      "const": "conformance"
+    },
+    "canonical_job_id": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "canonical_job_conclusion": {
+      "const": "success"
+    },
+    "dispatched_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "type": "string"
+    }
+  }
+}

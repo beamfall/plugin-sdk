@@ -1,0 +1,72 @@
+[
+  {
+    "consumerID": "adult",
+    "consumerVersion": "0.1.4",
+    "consumerRevision": "cc58e005de055dc2105407a6287d9e9d48f0688e",
+    "consumerDigest": "sha256:86915d8e11408775b6fc4cbe54cc5a60e46679a660ca654b72d018c40c5144b3",
+    "sdkVersion": "0.3.2",
+    "sdkFloor": "0.1.6",
+    "sdkCeiling": "0.3.2",
+    "conformanceTest": "beamfall-plugin-adult/conformance_test.go"
+  },
+  {
+    "consumerID": "audiobook",
+    "consumerVersion": "0.1.4",
+    "consumerRevision": "494a88af0aa4e29a667ed1e80c54115eba832576",
+    "consumerDigest": "sha256:8d88b5a84d6aa4f7343c0f998c5fc17b56d004916e204a31ff52ff2565862090",
+    "sdkVersion": "0.3.2",
+    "sdkFloor": "0.2.0",
+    "sdkCeiling": "0.3.2",
+    "conformanceTest": "beamfall-plugin-audiobook/conformance_test.go"
+  },
+  {
+    "consumerID": "familyarchive",
+    "consumerVersion": "0.1.4",
+    "consumerRevision": "7b5ac1c1032a6a1619d93ad9c8b30a7df50d1a9f",
+    "consumerDigest": "sha256:ca26223180f907e2f13f549853caf97504cba947b9487abcc6a9a4201671920e",
+    "sdkVersion": "0.3.2",
+    "sdkFloor": "0.2.0",
+    "sdkCeiling": "0.3.2",
+    "conformanceTest": "beamfall-plugin-familyarchive/conformance_test.go"
+  },
+  {
+    "consumerID": "filmtv",
+    "consumerVersion": "0.1.4",
+    "consumerRevision": "bb7c2f6cd6ca684e1ffbf9c26968138d5ff02e31",
+    "consumerDigest": "sha256:ab807961c4309f7fdf447c7d12bf83cdb56e8b25312dd8895101f7fda67970d2",
+    "sdkVersion": "0.3.2",
+    "sdkFloor": "0.3.2",
+    "sdkCeiling": "0.3.2",
+    "conformanceTest": "beamfall-plugin-filmtv/conformance_test.go"
+  },
+  {
+    "consumerID": "music",
+    "consumerVersion": "0.1.5",
+    "consumerRevision": "8521e5da05acaf95c87348d874432d48a8ce884e",
+    "consumerDigest": "sha256:e5c35834038e9bcdb1e099392723c51665fde52456bc3a987054b41b2d5e73be",
+    "sdkVersion": "0.3.2",
+    "sdkFloor": "0.2.0",
+    "sdkCeiling": "0.3.2",
+    "conformanceTest": "beamfall-plugin-music/conformance_test.go"
+  },
+  {
+    "consumerID": "photos",
+    "consumerVersion": "0.1.4",
+    "consumerRevision": "d9badd63b57a48e1470d7d9fa6d7295a1f9f5848",
+    "consumerDigest": "sha256:176139d652c7361c6dab5a1b40d80a7a1bf055ad47d20c30f48f90e87633dd80",
+    "sdkVersion": "0.3.2",
+    "sdkFloor": "0.2.0",
+    "sdkCeiling": "0.3.2",
+    "conformanceTest": "beamfall-plugin-photos/conformance_test.go"
+  },
+  {
+    "consumerID": "podcasts",
+    "consumerVersion": "0.1.4",
+    "consumerRevision": "78b737d449bcde5de0a3d58d457649058052eec3",
+    "consumerDigest": "sha256:93d4e64947846025e656cd3777095d8d2aab063c5896c2862cff249637c66a8b",
+    "sdkVersion": "0.3.2",
+    "sdkFloor": "0.2.0",
+    "sdkCeiling": "0.3.2",
+    "conformanceTest": "beamfall-plugin-podcasts/conformance_test.go"
+  }
+]

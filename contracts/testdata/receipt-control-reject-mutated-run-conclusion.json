@@ -1,0 +1,18 @@
+{
+  "canonical_job_conclusion": "success",
+  "canonical_job_id": 1,
+  "canonical_job_name": "conformance",
+  "completed_at": "1970-01-01T00:00:01Z",
+  "consumer": "adult",
+  "consumer_sha": "0000000000000000000000000000000000000000",
+  "dispatched_at": "1970-01-01T00:00:00Z",
+  "repository": "Beamfall/plugin-adult",
+  "schema_version": 1,
+  "sdk_sha": "0000000000000000000000000000000000000000",
+  "workflow_event": "workflow_dispatch",
+  "workflow_path": ".github/workflows/conformance.yml",
+  "workflow_run_attempt": 1,
+  "workflow_run_conclusion": "failure",
+  "workflow_run_id": 1,
+  "workflow_run_url": "https://github.com/Beamfall/plugin-adult/actions/runs/1"
+}

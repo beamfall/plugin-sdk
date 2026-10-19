@@ -1,0 +1,6 @@
+name: unsafe flow-style job environment
+
+on:
+  pull_request:
+
+jobs: {conformance: {env: {FUTURE_REPO_PAT: "${{ secrets.FUTURE_REPO_PAT }}"}}, notify-consumers: {steps: [{run: make notify}]}}

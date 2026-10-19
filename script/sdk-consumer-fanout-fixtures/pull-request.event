@@ -1,0 +1,3 @@
+event_name=pull_request
+ref=refs/pull/7/merge
+fanout=deny

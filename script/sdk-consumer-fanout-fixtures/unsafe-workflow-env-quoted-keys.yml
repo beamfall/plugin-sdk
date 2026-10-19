@@ -1,0 +1,23 @@
+name: unsafe quoted workflow environment
+
+on:
+  pull_request:
+
+"env":
+  FUTURE_REPO_PAT: ${{ secrets.FUTURE_REPO_PAT }}
+
+"jobs":
+  "conformance":
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - run: make test
+
+  "notify-consumers":
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    environment: trusted-integration
+    runs-on: ubuntu-latest
+    steps:
+      - run: make notify
