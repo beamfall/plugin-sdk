@@ -4,8 +4,8 @@
 
 # Beamfall Plugin SDK
 
-**The Go contract for teaching Beamfall Core a new kind of library.**
-Every browse experience in [Beamfall Core](https://github.com/beamfall/core) (films and shows,
+This module is the Go contract that Beamfall plugins implement to add a new kind of library to
+Beamfall Core. Every browse experience in [Beamfall Core](https://github.com/beamfall/core) (films and shows,
 music, podcasts, audiobooks, photos, family archives) comes from a plugin built on this SDK.
 A plugin declares what its media is, how to read it from disk, how to identify it, and how to
 lay it out. Core does the scanning, storage, streaming, and rendering.
@@ -13,20 +13,18 @@ lay it out. Core does the scanning, storage, streaming, and rendering.
 It is free and open source under [AGPL-3.0-only](LICENSE). Like Core, it needs no account, and it has
 no telemetry.
 
-## Why build on it
+## Design
 
-- **Describe, don't reimplement.** A plugin is mostly a declarative `Bundle`: entity kinds, typed
-  fields, layouts, scrapers, importers, and labels. Core turns that into a working library, so
-  your code stays small and focused on your domain.
-- **Your domain stays yours.** The SDK has no domain vocabulary and no store. Words like "album",
-  "season", or "episode" live in your plugin, and Core's schema stays generic.
-- **Breakage shows up in your CI.** The `sdktest` harness pins your parser, scorer, bundle, and
-  importer to golden vectors. A contract break fails your own tests and your tagged release, not
-  a user's server.
-- **One small dependency.** The module depends on the Go standard library and `golang.org/x/text`,
-  and nothing else. Importing it adds almost nothing to your supply chain.
+- A plugin is mostly a declarative `Bundle`: entity kinds, typed fields, layouts, scrapers,
+  importers, and labels. Core turns that into a working library, so plugin code is mostly about
+  its own domain.
+- The SDK has no domain vocabulary and no store. Words like "album", "season", or "episode" live
+  in your plugin, and Core's schema stays generic.
+- The `sdktest` harness pins your parser, scorer, bundle, and importer to golden vectors, so a
+  contract break fails your own tests and your tagged release before it reaches a user's server.
+- The module depends only on the Go standard library and `golang.org/x/text`.
 
-## What you get
+## Packages
 
 | Package | What it provides |
 | --- | --- |
@@ -167,11 +165,11 @@ These plugins are built on this SDK:
 - [plugin-enrichment](https://github.com/beamfall/plugin-enrichment): deterministic content fingerprints
 - [plugin-karaoke](https://github.com/beamfall/plugin-karaoke): karaoke libraries with timed lyrics
 
-They are the best working examples of every seam in this SDK.
+They are working examples of the seams in this SDK.
 
 ## Developing the SDK
 
-You need Go at the version in `go.mod`, and `golangci-lint` 2.12.2 for the full local gate.
+You need Go at the version in `go.mod`, and `golangci-lint` 2.15.0 (the version CI uses) for the full local gate.
 
 ```sh
 script/gate.sh      # formatting, vet, tests, per-package coverage floors, lint
