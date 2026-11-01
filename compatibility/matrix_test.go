@@ -13,7 +13,7 @@ import (
 	sdk "github.com/beamfall/plugin-sdk"
 )
 
-const wantSDKVersion = "0.3.2"
+const wantSDKVersion = "0.3.3"
 
 func matrixBundle(entry Entry) sdk.Bundle {
 	return sdk.Bundle{
@@ -65,8 +65,8 @@ func TestCanonicalMatrixIsExactAndCurrent(t *testing.T) {
 			adult = matrixBundle(entry)
 		}
 	}
-	if adult.ID != "adult" || adult.SDKFloor != "0.1.6" {
-		t.Errorf("adult matrix identity/floor = %s/%s, want adult/0.1.6", adult.ID, adult.SDKFloor)
+	if adult.ID != "adult" || adult.SDKFloor != "0.3.3" {
+		t.Errorf("adult matrix identity/floor = %s/%s, want adult/0.3.3", adult.ID, adult.SDKFloor)
 	}
 	if err := Verify(adult, wantSDKVersion); err != nil {
 		t.Errorf("adult historical floor %s does not verify against recorded SDK %s: %v", adult.SDKFloor, wantSDKVersion, err)
@@ -161,11 +161,11 @@ func TestVerifyRejectsUnprovedCompatibility(t *testing.T) {
 	}{
 		{"unregistered consumer", func(bundle *sdk.Bundle) string {
 			bundle.ID = "unknown"
-			return "0.2.0"
+			return wantSDKVersion
 		}, "no producer compatibility evidence"},
 		{"unregistered consumer version", func(bundle *sdk.Bundle) string {
 			bundle.Version = "0.1.1"
-			return "0.2.0"
+			return wantSDKVersion
 		}, "no producer compatibility evidence"},
 		{"unregistered SDK version", func(_ *sdk.Bundle) string {
 			return "0.1.5"

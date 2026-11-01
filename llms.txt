@@ -1,6 +1,6 @@
 # Beamfall Plugin SDK
 
-> `github.com/beamfall/plugin-sdk` (v0.3.2) is the Go contract for Beamfall plugins: the
+> `github.com/beamfall/plugin-sdk` (v0.3.3) is the Go contract for Beamfall plugins: the
 > declarative Bundle manifest, the seams a plugin implements and Beamfall Core
 > consumes, and the sdktest conformance harness that proves a plugin honors them.
 > Dependencies: Go standard library plus golang.org/x/text (Unicode
