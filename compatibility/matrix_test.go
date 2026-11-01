@@ -29,7 +29,7 @@ func matrixBundle(entry Entry) sdk.Bundle {
 }
 
 func TestCanonicalMatrixIsExactAndCurrent(t *testing.T) {
-	wantIDs := []sdk.ID{"adult", "audiobook", "familyarchive", "filmtv", "music", "photos", "podcasts"}
+	wantIDs := []sdk.ID{"adult", "audiobook", "familyarchive", "filmtv", "karaoke", "music", "photos", "podcasts"}
 	got := Entries()
 	if len(got) != len(wantIDs) {
 		t.Fatalf("matrix entries = %d, want %d", len(got), len(wantIDs))
