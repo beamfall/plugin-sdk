@@ -1,6 +1,16 @@
 // Package catalogindex verifies and filters Beamfall's public global plugin
 // catalog. Callers obtain the one static artifact without plugin identifiers,
 // verify it offline, then filter it locally.
+//
+// Every entry carries signed legal metadata: an SPDX licence expression,
+// notice files, the exact source and build provenance, an optional source
+// offer and a rights attestation by a policy reviewer. What is acceptable is
+// not decided here. The catalog operator signs a licence Policy (allowed SPDX
+// expressions, each with its source-offer rule, the reviewer keyring and the
+// maximum attestation age), the document embeds it, and the index payload is
+// bound to its digest. This package ships no production policy, keyring or
+// key; it only verifies the operator's signed data and fails closed on any
+// omission or mismatch.
 package catalogindex
 
 import (
@@ -18,10 +28,19 @@ import (
 	"time"
 )
 
-const SchemaVersion = 1
+// SchemaVersion is the only catalog index schema ParseAndVerify accepts.
+// Version 2 adds the signed legal metadata (licence, notices, source,
+// provenance, rights attestation) and the embedded licence policy; version 1
+// documents carry none of it and are rejected with ErrLegacySchema.
+const SchemaVersion = 2
 
-// firstPartyCatalogOnly keeps catalog admission closed to third-party plugins
-// until the catalog carries notice and source-offer metadata.
+// legacySchemaVersion is the pre-legal schema. It is never admitted; see
+// MigrateV1.
+const legacySchemaVersion = 1
+
+// firstPartyCatalogOnly keeps catalog admission closed to third-party plugins.
+// The index can now carry notice and source-offer metadata, but opening
+// third-party admission is a separate owner decision.
 const firstPartyCatalogOnly = true
 
 var firstPartyPluginIDs = map[string]struct{}{
@@ -34,6 +53,8 @@ var firstPartyPluginIDs = map[string]struct{}{
 	"podcasts":      {},
 }
 
+// Entry is one plugin release in the catalog. Every field, including Legal,
+// is covered by the registry signature.
 type Entry struct {
 	PluginID       string `json:"plugin_id"`
 	Version        string `json:"version"`
@@ -41,19 +62,27 @@ type Entry struct {
 	SDKCeiling     string `json:"sdk_ceiling"`
 	ArtifactSHA256 string `json:"artifact_sha256"`
 	DeliveryRef    string `json:"delivery_ref"`
+	Legal          Legal  `json:"legal"`
 }
 
+// Index is the signed catalog payload. PolicySHA256 binds the index to the
+// licence policy embedded in the SignedIndex document (see PolicyDigest).
 type Index struct {
 	SchemaVersion int       `json:"schema_version"`
 	Sequence      uint64    `json:"sequence"`
 	IssuedAt      time.Time `json:"issued_at"`
+	PolicySHA256  string    `json:"policy_sha256"`
 	Entries       []Entry   `json:"entries"`
 }
 
+// SignedIndex is the complete static catalog document: the index, the
+// operator-signed licence policy it is bound to, and the registry signature
+// over the index and RegistryKeyID.
 type SignedIndex struct {
-	Index         Index  `json:"index"`
-	RegistryKeyID string `json:"registry_key_id"`
-	Signature     string `json:"signature"`
+	Index         Index        `json:"index"`
+	Policy        SignedPolicy `json:"policy"`
+	RegistryKeyID string       `json:"registry_key_id"`
+	Signature     string       `json:"signature"`
 }
 
 type signingPayload struct {
@@ -66,10 +95,19 @@ var (
 	ErrSignature          = errors.New("catalogindex: invalid signature")
 	ErrUnknownKey         = errors.New("catalogindex: unknown registry key")
 	ErrSequenceRegression = errors.New("catalogindex: sequence must increase monotonically")
+	// ErrLegacySchema rejects a schema version 1 document: it carries no
+	// licence, notice, provenance or rights metadata and is never admitted.
+	// Re-issue it as version 2 (see MigrateV1).
+	ErrLegacySchema = errors.New("catalogindex: schema version 1 carries no legal metadata; re-issue as version 2")
 )
 
 // ParseAndVerify decodes a complete static catalog, verifies it against caller-
-// supplied bundled roots, and rejects equal or older publications.
+// supplied bundled roots, and rejects equal or older publications. It verifies,
+// in order: the schema version, the sequence, the registry signature over the
+// index (which covers the policy digest and every entry's legal fields), the
+// embedded licence policy's own signature and its digest binding, and then
+// every entry's legal metadata against that policy. Any failure returns an
+// empty Index.
 func ParseAndVerify(raw []byte, roots map[string]ed25519.PublicKey, lastKnownSequence uint64) (Index, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
@@ -81,6 +119,9 @@ func ParseAndVerify(raw []byte, roots map[string]ed25519.PublicKey, lastKnownSeq
 	if err := dec.Decode(&extra); err != io.EOF {
 		return Index{}, fmt.Errorf("%w: trailing data", ErrInvalid)
 	}
+	if signed.Index.SchemaVersion == legacySchemaVersion {
+		return Index{}, ErrLegacySchema
+	}
 	if signed.Index.Sequence <= lastKnownSequence {
 		return Index{}, ErrSequenceRegression
 	}
@@ -91,18 +132,40 @@ func ParseAndVerify(raw []byte, roots map[string]ed25519.PublicKey, lastKnownSeq
 	if err := validate(signed.Index); err != nil {
 		return Index{}, err
 	}
-	sig, err := base64.RawURLEncoding.DecodeString(signed.Signature)
-	if err != nil {
-		return Index{}, ErrSignature
+	if err := verifySignature(key, signingPayload{Index: signed.Index, RegistryKeyID: signed.RegistryKeyID}, signed.Signature); err != nil {
+		return Index{}, err
 	}
-	encoded, err := canonicalJSON(signingPayload{Index: signed.Index, RegistryKeyID: signed.RegistryKeyID})
+	policyDigest, err := verifyPolicy(signed.Policy, roots)
 	if err != nil {
 		return Index{}, err
 	}
-	if !ed25519.Verify(key, encoded, sig) {
-		return Index{}, ErrSignature
+	if policyDigest != signed.Index.PolicySHA256 {
+		return Index{}, fmt.Errorf("%w: index is bound to policy %s, embedded policy is %s", ErrPolicy, signed.Index.PolicySHA256, policyDigest)
+	}
+	if signed.Policy.Policy.IssuedAt.After(signed.Index.IssuedAt) {
+		return Index{}, fmt.Errorf("%w: policy issued after the index", ErrPolicy)
+	}
+	for _, entry := range signed.Index.Entries {
+		if err := verifyLegal(entry, signed.Policy.Policy, policyDigest, signed.Index.IssuedAt); err != nil {
+			return Index{}, err
+		}
 	}
 	return signed.Index, nil
+}
+
+func verifySignature(key ed25519.PublicKey, payload any, signature string) error {
+	sig, err := base64.RawURLEncoding.DecodeString(signature)
+	if err != nil {
+		return ErrSignature
+	}
+	encoded, err := canonicalJSON(payload)
+	if err != nil {
+		return err
+	}
+	if !ed25519.Verify(key, encoded, sig) {
+		return ErrSignature
+	}
+	return nil
 }
 
 // Filter returns only installed plugin IDs from an already verified index. It
@@ -118,7 +181,7 @@ func Filter(index Index, pluginIDs map[string]struct{}) []Entry {
 }
 
 func validate(index Index) error {
-	if index.SchemaVersion != SchemaVersion || index.Sequence == 0 || index.IssuedAt.IsZero() {
+	if index.SchemaVersion != SchemaVersion || index.Sequence == 0 || index.IssuedAt.IsZero() || !isSHA256(index.PolicySHA256) {
 		return ErrInvalid
 	}
 	seenIDs := make(map[string]struct{}, len(index.Entries))
@@ -129,10 +192,8 @@ func validate(index Index) error {
 				return ErrInvalid
 			}
 		}
-		for _, value := range []string{entry.PluginID, entry.Version, entry.ArtifactSHA256, entry.DeliveryRef} {
-			if strings.TrimSpace(value) == "" {
-				return ErrInvalid
-			}
+		if err := validateEntry(entry); err != nil {
+			return err
 		}
 		if _, exists := seenIDs[entry.PluginID]; exists {
 			return ErrInvalid
@@ -142,22 +203,40 @@ func validate(index Index) error {
 			return ErrInvalid
 		}
 		seenRefs[entry.DeliveryRef] = struct{}{}
-		hash, err := hex.DecodeString(entry.ArtifactSHA256)
-		if err != nil || len(hash) != 32 || entry.ArtifactSHA256 != strings.ToLower(entry.ArtifactSHA256) {
-			return ErrInvalid
-		}
-		if strings.ContainsAny(entry.DeliveryRef, "/?#") || strings.Contains(entry.DeliveryRef, "://") {
-			return ErrInvalid
-		}
-		version, versionOK := parseSemver(entry.Version)
-		floor, floorOK := parseSemver(entry.SDKFloor)
-		ceiling, ceilingOK := parseSemver(entry.SDKCeiling)
-		if !versionOK || (entry.SDKFloor != "" && !floorOK) || (entry.SDKCeiling != "" && !ceilingOK) || (floorOK && ceilingOK && compareSemver(floor, ceiling) > 0) {
-			return ErrInvalid
-		}
-		_ = version
 	}
 	return nil
+}
+
+// validateEntry checks one entry's release fields (not its legal metadata).
+func validateEntry(entry Entry) error {
+	for _, value := range []string{entry.PluginID, entry.Version, entry.ArtifactSHA256, entry.DeliveryRef} {
+		if strings.TrimSpace(value) == "" {
+			return ErrInvalid
+		}
+	}
+	if !isSHA256(entry.ArtifactSHA256) {
+		return ErrInvalid
+	}
+	if strings.ContainsAny(entry.DeliveryRef, "/?#") || strings.Contains(entry.DeliveryRef, "://") {
+		return ErrInvalid
+	}
+	_, versionOK := parseSemver(entry.Version)
+	floor, floorOK := parseSemver(entry.SDKFloor)
+	ceiling, ceilingOK := parseSemver(entry.SDKCeiling)
+	if !versionOK || (entry.SDKFloor != "" && !floorOK) || (entry.SDKCeiling != "" && !ceilingOK) || (floorOK && ceilingOK && compareSemver(floor, ceiling) > 0) {
+		return ErrInvalid
+	}
+	return nil
+}
+
+// isSHA256 reports whether value is a lowercase hex SHA-256 digest.
+func isSHA256(value string) bool {
+	return isLowerHex(value, 32)
+}
+
+func isLowerHex(value string, size int) bool {
+	decoded, err := hex.DecodeString(value)
+	return err == nil && len(decoded) == size && value == strings.ToLower(value)
 }
 
 func parseSemver(value string) ([3]uint64, bool) {

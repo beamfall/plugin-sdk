@@ -1,18 +1,24 @@
 package sdktest
 
 import (
+	"crypto/ed25519"
 	"fmt"
+	"time"
 
 	sdk "github.com/beamfall/plugin-sdk"
+	"github.com/beamfall/plugin-sdk/catalogindex"
 	"github.com/beamfall/plugin-sdk/compatibility"
 )
 
-// GateClass names one of the four mechanical admission gates required
-// before a plugin listing is admitted to the registry: pass the SDK
-// conformance suite, declare a valid bundle manifest, respect the
-// fail-closed lifecycle contract, and declare an SDK compat
-// range that covers the registry's SDK version. Admission beyond these gates
-// (legality/malware) is a manual review function, not mechanical — see
+// GateClass names one of the five mechanical admission gates required
+// before a plugin listing is admitted to the registry: declare a valid
+// bundle manifest, respect the fail-closed lifecycle contract, declare an
+// SDK compat range that covers the registry's SDK version, carry signed
+// legal metadata that verifies against the catalog operator's signed licence
+// policy, and pass the SDK conformance suite. The legal gate checks that the
+// metadata is complete, consistent and attested by a reviewer the policy
+// names; it does not decide whether a licence is acceptable (the policy
+// does) and it is not a malware review — see
 // docs/registry-admission-runbook.md.
 type GateClass string
 
@@ -21,11 +27,26 @@ const (
 	GateManifest    GateClass = "manifest"
 	GateLifecycle   GateClass = "lifecycle"
 	GateCompatRange GateClass = "compat-range"
+	GateLegal       GateClass = "legal"
 )
 
 // gateClasses is the fixed, ordered admission vocabulary. Order
 // is evaluation order: cheapest/most-diagnostic failures surface first.
-var gateClasses = []GateClass{GateManifest, GateLifecycle, GateCompatRange, GateConformance}
+var gateClasses = []GateClass{GateManifest, GateLifecycle, GateCompatRange, GateLegal, GateConformance}
+
+// LegalEvidence is the signed legal metadata for one listing: the catalog
+// entry the registry would publish, the operator's signed licence policy, the
+// registry root keys that sign that policy, the evaluation time (the issue
+// time of the index the entry would join) and the bytes the entry's digests
+// name. The SDK ships no policy, keyring or keys; the catalog operator
+// supplies them.
+type LegalEvidence struct {
+	Entry  catalogindex.Entry
+	Policy catalogindex.SignedPolicy
+	Roots  map[string]ed25519.PublicKey
+	At     time.Time
+	Bytes  catalogindex.EntryBytes
+}
 
 // Listing is the registry-facing manifest for one plugin admission attempt:
 // the plugin's Bundle plus the out-of-band conformance signal (did
@@ -46,6 +67,9 @@ type Listing struct {
 	// must not silently collide with another plugin's ID or Entity Kind
 	// namespace once both are loaded together).
 	Registry []sdk.Bundle
+	// Legal is the listing's signed legal metadata. A nil Legal fails the
+	// legal gate: nothing is admitted without it.
+	Legal *LegalEvidence
 }
 
 // AdmissionResult is the outcome of Admit: which gate classes passed, and the
@@ -58,7 +82,7 @@ type AdmissionResult struct {
 	GatesPassed []GateClass
 }
 
-// Admit runs the four mechanical admission gates against a
+// Admit runs the five mechanical admission gates against a
 // listing, in order, stopping at the first failure. sdkVersion is the
 // registry's reference plugin-sdk release (e.g. sdk.Version of the SDK
 // build the registry curates against).
@@ -115,6 +139,8 @@ func evaluateGate(gate GateClass, listing Listing, sdkVersion string) (string, b
 			return fmt.Sprintf("plugin %s: SDK range [%s, %s] does not support SDK %s", listing.Bundle.ID, listing.Bundle.SDKFloor, listing.Bundle.SDKCeiling, sdkVersion), false
 		}
 		return "", true
+	case GateLegal:
+		return legalGate(listing)
 	case GateConformance:
 		if !listing.ConformancePassed {
 			return fmt.Sprintf("plugin %s: sdktest conformance suite did not pass", listing.Bundle.ID), false
@@ -123,4 +149,25 @@ func evaluateGate(gate GateClass, listing Listing, sdkVersion string) (string, b
 	default:
 		return fmt.Sprintf("unknown admission gate class %q", gate), false
 	}
+}
+
+// legalGate binds the listing's bundle to its signed catalog entry and
+// verifies the entry against the operator's signed policy and the supplied
+// bytes. Every omission or inconsistency rejects.
+func legalGate(listing Listing) (string, bool) {
+	evidence, bundle := listing.Legal, listing.Bundle
+	if evidence == nil {
+		return fmt.Sprintf("plugin %s: no signed legal metadata (licence, notices, source, provenance, rights attestation)", bundle.ID), false
+	}
+	entry := evidence.Entry
+	if entry.PluginID != string(bundle.ID) || entry.Version != bundle.Version || entry.SDKFloor != bundle.SDKFloor || entry.SDKCeiling != bundle.SDKCeiling {
+		return fmt.Sprintf("plugin %s %s [%s, %s]: legal metadata names %s %s [%s, %s]", bundle.ID, bundle.Version, bundle.SDKFloor, bundle.SDKCeiling, entry.PluginID, entry.Version, entry.SDKFloor, entry.SDKCeiling), false
+	}
+	if err := catalogindex.VerifyEntry(entry, evidence.Policy, evidence.Roots, evidence.At); err != nil {
+		return fmt.Sprintf("plugin %s: %v", bundle.ID, err), false
+	}
+	if err := catalogindex.VerifyEntryBytes(entry, evidence.Bytes); err != nil {
+		return fmt.Sprintf("plugin %s: %v", bundle.ID, err), false
+	}
+	return "", true
 }
