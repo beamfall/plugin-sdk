@@ -10,7 +10,7 @@
 
 - [x] 2.1 Mutation, round-trip, signature and keyring tests pass
 - [x] 2.2 `openspec validate --all --strict` passes
-- [ ] 2.3 `script/gate.sh` passes on the lane head
+- [x] 2.3 `script/gate.sh` passes on the lane head (527a37a)
 - [ ] 2.4 Legal approval and human release approval: NOT_RUN, waived by the owner on 2026-11-10
 
 ## 3. Close
