@@ -1,1 +1,1 @@
-{"profile":"corvint-test-commands/0","go":{"env":{},"flags":["-count=1","-timeout","30m"]},"languages":{"shell":["script/gate_test.sh"]}}
+{"profile":"corvint-test-commands/0","go":{"env":{},"flags":["-count=1","-timeout","30m"]},"languages":{"shell":["script/gate_test.sh","script/sdk-consumer-fanout_test.sh","script/tool_pin_policy_test.sh"]}}
