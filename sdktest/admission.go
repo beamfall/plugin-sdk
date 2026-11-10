@@ -43,9 +43,12 @@ var gateClasses = []GateClass{GateManifest, GateLifecycle, GateCompatRange, Gate
 type LegalEvidence struct {
 	Entry  catalogindex.Entry
 	Policy catalogindex.SignedPolicy
-	Roots  map[string]ed25519.PublicKey
-	At     time.Time
-	Bytes  catalogindex.EntryBytes
+	// Roots maps a registry key ID to its public key. The policy's
+	// RegistryKeyID selects the key that must have signed it; an ID absent
+	// from Roots fails the legal gate.
+	Roots map[string]ed25519.PublicKey
+	At    time.Time
+	Bytes catalogindex.EntryBytes
 }
 
 // Listing is the registry-facing manifest for one plugin admission attempt:
