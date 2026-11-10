@@ -341,7 +341,7 @@ func verifyLegal(entry Entry, policy Policy, policySHA256 string, at time.Time) 
 	if err := checkNotices(legal.Notices); err != nil {
 		return fmt.Errorf("%w: plugin %s: %v", ErrNotice, id, err)
 	}
-	if !isHTTPSURL(legal.SourceRepository) || !(isLowerHex(legal.SourceCommit, 20) || isLowerHex(legal.SourceCommit, 32)) ||
+	if !isHTTPSURL(legal.SourceRepository) || !isGitCommit(legal.SourceCommit) ||
 		!isSHA256(legal.SourceSHA256) || !isSHA256(legal.ProvenanceSHA256) {
 		return fmt.Errorf("%w: plugin %s", ErrProvenance, id)
 	}
@@ -419,4 +419,10 @@ func checkNotices(notices []Notice) error {
 func isHTTPSURL(value string) bool {
 	u, err := url.Parse(value)
 	return err == nil && u.Scheme == "https" && u.Host != "" && u.User == nil && u.RawQuery == "" && u.Fragment == "" && !strings.ContainsAny(value, " \t\r\n")
+}
+
+// isGitCommit reports whether value is a full lowercase SHA-1 or SHA-256
+// git object name.
+func isGitCommit(value string) bool {
+	return isLowerHex(value, 20) || isLowerHex(value, 32)
 }
