@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -167,6 +168,30 @@ func TestValidateBundleScraperAuthStyles(t *testing.T) {
 	validLogin.Scrapers[0].Login = &LoginSpec{Path: "/login", SecretField: "apikey", TokenPath: "data.token"}
 	if err := ValidateBundle(validLogin); err != nil {
 		t.Fatalf("ValidateBundle rejected a valid login-bearer scraper: %v", err)
+	}
+
+	for name, fields := range map[string]map[string]string{
+		"duplicate field": {"apikey": "other-key"},
+		"empty field":     {"": "other-key"},
+		"path ref":        {"pin": "../secret"},
+		"hidden ref":      {"pin": ".hidden"},
+		"empty ref":       {"pin": ""},
+	} {
+		bad := scraperBundle()
+		bad.Scrapers[0].AuthStyle = "login-bearer"
+		bad.Scrapers[0].AuthRef = "example-key"
+		bad.Scrapers[0].Login = &LoginSpec{Path: "/login", SecretField: "apikey", TokenPath: "data.token", SecretFields: fields}
+		if err := ValidateBundle(bad); err == nil || !strings.Contains(err.Error(), "login secret field") {
+			t.Errorf("%s: got %v, want a login secret field error", name, err)
+		}
+	}
+
+	twoSecrets := scraperBundle()
+	twoSecrets.Scrapers[0].AuthStyle = "login-bearer"
+	twoSecrets.Scrapers[0].AuthRef = "example-pin"
+	twoSecrets.Scrapers[0].Login = &LoginSpec{Path: "/login", SecretField: "pin", TokenPath: "data.token", SecretFields: map[string]string{"apikey": "example-key"}}
+	if err := ValidateBundle(twoSecrets); err != nil {
+		t.Fatalf("ValidateBundle rejected a two-secret login: %v", err)
 	}
 }
 

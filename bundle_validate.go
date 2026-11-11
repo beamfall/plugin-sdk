@@ -515,6 +515,11 @@ func ValidateBundle(bundle Bundle) error {
 			if !strings.HasPrefix(login.Path, "/") || login.SecretField == "" || login.TokenPath == "" {
 				return fmt.Errorf("plugin %s: scraper %q login declaration needs a /-rooted path, a secret field, and a token path", bundle.ID, scraper.ID)
 			}
+			for field, ref := range login.SecretFields {
+				if field == "" || field == login.SecretField || !validAuthRef(ref) {
+					return fmt.Errorf("plugin %s: scraper %q login secret field %q needs a distinct name and a plain AuthRef (got %q)", bundle.ID, scraper.ID, field, ref)
+				}
+			}
 		}
 		if strings.HasPrefix(scraper.AuthStyle, "signature:") != (scraper.Signature != nil) {
 			return fmt.Errorf("plugin %s: scraper %q: the signature:<name> style and the Signature declaration require each other", bundle.ID, scraper.ID)
@@ -1097,6 +1102,12 @@ func validateImpliedMediaFields(pluginID ID, scraper ScraperSpec, mediaFields ma
 		}
 	}
 	return nil
+}
+
+// validAuthRef reports whether ref is a plain credential name: non-empty, no
+// path separators, not hidden. Hosts store one secret per AuthRef file.
+func validAuthRef(ref string) bool {
+	return ref != "" && !strings.ContainsAny(ref, "/\\") && !strings.HasPrefix(ref, ".")
 }
 
 func validateLocalFileScraper(pluginID ID, scraper ScraperSpec) error {

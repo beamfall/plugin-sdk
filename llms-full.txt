@@ -1869,6 +1869,12 @@ type LoginSpec struct {
 	SecretField string
 	// TokenPath is the JSON path of the issued token ("data.token").
 	TokenPath string
+	// SecretFields adds further JSON body keys, each carrying the secret named
+	// by its AuthRef value and resolved exactly like the scraper's AuthRef —
+	// for example {"apikey": "tvdb-api-key"} beside a "pin" SecretField whose
+	// AuthRef is the user's subscriber PIN. A missing one fails the exchange
+	// like a missing AuthRef. Nil for a single-secret login.
+	SecretFields map[string]string
 }
 ```
 
