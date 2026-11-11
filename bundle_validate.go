@@ -1,9 +1,11 @@
 package sdk
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"math"
+	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
@@ -471,6 +473,9 @@ func ValidateBundle(bundle Bundle) error {
 		}
 		if err := validateLocaleString(scraper.DisplayName); err != nil {
 			return fmt.Errorf("plugin %s: scraper %q display name: %w", bundle.ID, scraper.ID, err)
+		}
+		if err := validateAttribution(scraper.Attribution); err != nil {
+			return fmt.Errorf("plugin %s: scraper %q attribution: %w", bundle.ID, scraper.ID, err)
 		}
 		if LocalFileScraperKind(scraper.Kind) {
 			if err := validateLocalFileScraper(bundle.ID, scraper); err != nil {
@@ -976,6 +981,23 @@ func validateSource(source SourceSpec) error {
 		if strings.TrimSpace(filter.Name) == "" {
 			return fmt.Errorf("entity filter on kind %q requires a name", filter.Kind)
 		}
+	}
+	return nil
+}
+
+func validateAttribution(a *Attribution) error {
+	if a == nil {
+		return nil
+	}
+	if len(a.Text) == 0 {
+		return errors.New("text is required")
+	}
+	if err := validateLocaleString(a.Text); err != nil {
+		return fmt.Errorf("text: %w", err)
+	}
+	u, err := url.Parse(a.URL)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return fmt.Errorf("link %q must be an absolute https URL", a.URL)
 	}
 	return nil
 }

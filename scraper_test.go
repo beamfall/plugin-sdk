@@ -100,6 +100,30 @@ func TestValidateBundleScraperIdentityAndTransport(t *testing.T) {
 	wantBundleError(t, badFieldMapKey, `field key "bogus" is not a built-in`)
 }
 
+// TestValidateBundleScraperAttribution: a declared credit needs an "en" text
+// anchor and an absolute https link; nil means the source requires none.
+func TestValidateBundleScraperAttribution(t *testing.T) {
+	ok := scraperBundle()
+	ok.Scrapers[0].Attribution = &Attribution{Text: L("Metadata provided by Example"), URL: "https://example.test"}
+	if err := ValidateBundle(ok); err != nil {
+		t.Fatalf("valid attribution rejected: %v", err)
+	}
+
+	noText := scraperBundle()
+	noText.Scrapers[0].Attribution = &Attribution{URL: "https://example.test"}
+	wantBundleError(t, noText, `scraper "example" attribution: text is required`)
+
+	noEnglish := scraperBundle()
+	noEnglish.Scrapers[0].Attribution = &Attribution{Text: LocaleString{"fr": "Données"}, URL: "https://example.test"}
+	wantBundleError(t, noEnglish, `attribution: text: locale map must carry an "en" entry`)
+
+	for _, link := range []string{"", "http://example.test", "/about", "https://"} {
+		bad := scraperBundle()
+		bad.Scrapers[0].Attribution = &Attribution{Text: L("Credit"), URL: link}
+		wantBundleError(t, bad, "must be an absolute https URL")
+	}
+}
+
 // TestValidateBundleScraperAuthStyles: valid and invalid cases per auth style
 // — the unknown-style reject, the style-without-AuthRef reject, the
 // login-bearer/Login mutual requirement, and the LoginSpec shape.

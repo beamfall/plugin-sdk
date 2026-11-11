@@ -110,6 +110,9 @@ type ScraperSpec struct {
 	// DisplayName is the optional human source name shown in scraper selection
 	// surfaces (a locale map). Absent means clients fall back to ID.
 	DisplayName LocaleString
+	// Attribution is the credit the data source's terms require wherever its
+	// metadata is shown; nil when the source requires none.
+	Attribution *Attribution
 	Kind        string
 	// Endpoint is the base URL (https required outside tests).
 	Endpoint string
@@ -341,6 +344,15 @@ type EntityMap struct {
 	// ArtworkURLTemplate renders this EntityMap's ArtworkPath scalar into an
 	// absolute HTTPS URL. Empty uses the scraper's ArtworkBaseURL composition.
 	ArtworkURLTemplate string
+}
+
+// Attribution is a data source's required credit as pure data: the text
+// clients show (a locale map with an "en" anchor) and the https link it points
+// at. Clients render it next to metadata the source provided and in their
+// credits view.
+type Attribution struct {
+	Text LocaleString
+	URL  string
 }
 
 // LoginSpec declares the "login-bearer" token exchange as pure data (the
