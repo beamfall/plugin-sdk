@@ -1,6 +1,6 @@
 # Compatibility
 
-`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.3.3`.
+`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.3.4`.
 
 `const Version` in `bundle.go` is the source of truth for the SDK artifact's
 exact identity. Released source MUST match the release tag it ships under, and

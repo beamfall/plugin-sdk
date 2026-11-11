@@ -41,7 +41,7 @@ const MediaKindName = "media"
 MediaKindName is the reserved relation target naming the wire entity itself: relations run between Entities and Media.
 
 ```go
-const Version = "0.3.3"
+const Version = "0.3.4"
 ```
 
 Version is the exact SDK semver identity embedded by a Core build.
