@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -100,6 +101,30 @@ func TestValidateBundleScraperIdentityAndTransport(t *testing.T) {
 	wantBundleError(t, badFieldMapKey, `field key "bogus" is not a built-in`)
 }
 
+// TestValidateBundleScraperAttribution: a declared credit needs an "en" text
+// anchor and an absolute https link; nil means the source requires none.
+func TestValidateBundleScraperAttribution(t *testing.T) {
+	ok := scraperBundle()
+	ok.Scrapers[0].Attribution = &Attribution{Text: L("Metadata provided by Example"), URL: "https://example.test"}
+	if err := ValidateBundle(ok); err != nil {
+		t.Fatalf("valid attribution rejected: %v", err)
+	}
+
+	noText := scraperBundle()
+	noText.Scrapers[0].Attribution = &Attribution{URL: "https://example.test"}
+	wantBundleError(t, noText, `scraper "example" attribution: text is required`)
+
+	noEnglish := scraperBundle()
+	noEnglish.Scrapers[0].Attribution = &Attribution{Text: LocaleString{"fr": "Données"}, URL: "https://example.test"}
+	wantBundleError(t, noEnglish, `attribution: text: locale map must carry an "en" entry`)
+
+	for _, link := range []string{"", "http://example.test", "/about", "https://"} {
+		bad := scraperBundle()
+		bad.Scrapers[0].Attribution = &Attribution{Text: L("Credit"), URL: link}
+		wantBundleError(t, bad, "must be an absolute https URL")
+	}
+}
+
 // TestValidateBundleScraperAuthStyles: valid and invalid cases per auth style
 // — the unknown-style reject, the style-without-AuthRef reject, the
 // login-bearer/Login mutual requirement, and the LoginSpec shape.
@@ -143,6 +168,30 @@ func TestValidateBundleScraperAuthStyles(t *testing.T) {
 	validLogin.Scrapers[0].Login = &LoginSpec{Path: "/login", SecretField: "apikey", TokenPath: "data.token"}
 	if err := ValidateBundle(validLogin); err != nil {
 		t.Fatalf("ValidateBundle rejected a valid login-bearer scraper: %v", err)
+	}
+
+	for name, fields := range map[string]map[string]string{
+		"duplicate field": {"apikey": "other-key"},
+		"empty field":     {"": "other-key"},
+		"path ref":        {"pin": "../secret"},
+		"hidden ref":      {"pin": ".hidden"},
+		"empty ref":       {"pin": ""},
+	} {
+		bad := scraperBundle()
+		bad.Scrapers[0].AuthStyle = "login-bearer"
+		bad.Scrapers[0].AuthRef = "example-key"
+		bad.Scrapers[0].Login = &LoginSpec{Path: "/login", SecretField: "apikey", TokenPath: "data.token", SecretFields: fields}
+		if err := ValidateBundle(bad); err == nil || !strings.Contains(err.Error(), "login secret field") {
+			t.Errorf("%s: got %v, want a login secret field error", name, err)
+		}
+	}
+
+	twoSecrets := scraperBundle()
+	twoSecrets.Scrapers[0].AuthStyle = "login-bearer"
+	twoSecrets.Scrapers[0].AuthRef = "example-pin"
+	twoSecrets.Scrapers[0].Login = &LoginSpec{Path: "/login", SecretField: "pin", TokenPath: "data.token", SecretFields: map[string]string{"apikey": "example-key"}}
+	if err := ValidateBundle(twoSecrets); err != nil {
+		t.Fatalf("ValidateBundle rejected a two-secret login: %v", err)
 	}
 }
 

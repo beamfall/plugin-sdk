@@ -1,9 +1,11 @@
 package sdk
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"math"
+	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
@@ -472,6 +474,9 @@ func ValidateBundle(bundle Bundle) error {
 		if err := validateLocaleString(scraper.DisplayName); err != nil {
 			return fmt.Errorf("plugin %s: scraper %q display name: %w", bundle.ID, scraper.ID, err)
 		}
+		if err := validateAttribution(scraper.Attribution); err != nil {
+			return fmt.Errorf("plugin %s: scraper %q attribution: %w", bundle.ID, scraper.ID, err)
+		}
 		if LocalFileScraperKind(scraper.Kind) {
 			if err := validateLocalFileScraper(bundle.ID, scraper); err != nil {
 				return err
@@ -509,6 +514,11 @@ func ValidateBundle(bundle Bundle) error {
 		if login := scraper.Login; login != nil {
 			if !strings.HasPrefix(login.Path, "/") || login.SecretField == "" || login.TokenPath == "" {
 				return fmt.Errorf("plugin %s: scraper %q login declaration needs a /-rooted path, a secret field, and a token path", bundle.ID, scraper.ID)
+			}
+			for field, ref := range login.SecretFields {
+				if field == "" || field == login.SecretField || !validAuthRef(ref) {
+					return fmt.Errorf("plugin %s: scraper %q login secret field %q needs a distinct name and a plain AuthRef (got %q)", bundle.ID, scraper.ID, field, ref)
+				}
 			}
 		}
 		if strings.HasPrefix(scraper.AuthStyle, "signature:") != (scraper.Signature != nil) {
@@ -980,6 +990,23 @@ func validateSource(source SourceSpec) error {
 	return nil
 }
 
+func validateAttribution(a *Attribution) error {
+	if a == nil {
+		return nil
+	}
+	if len(a.Text) == 0 {
+		return errors.New("text is required")
+	}
+	if err := validateLocaleString(a.Text); err != nil {
+		return fmt.Errorf("text: %w", err)
+	}
+	u, err := url.Parse(a.URL)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return fmt.Errorf("link %q must be an absolute https URL", a.URL)
+	}
+	return nil
+}
+
 func validateLocaleString(s LocaleString) error {
 	if len(s) == 0 {
 		return nil
@@ -1075,6 +1102,12 @@ func validateImpliedMediaFields(pluginID ID, scraper ScraperSpec, mediaFields ma
 		}
 	}
 	return nil
+}
+
+// validAuthRef reports whether ref is a plain credential name: non-empty, no
+// path separators, not hidden. Hosts store one secret per AuthRef file.
+func validAuthRef(ref string) bool {
+	return ref != "" && !strings.ContainsAny(ref, "/\\") && !strings.HasPrefix(ref, ".")
 }
 
 func validateLocalFileScraper(pluginID ID, scraper ScraperSpec) error {

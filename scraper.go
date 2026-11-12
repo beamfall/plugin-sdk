@@ -110,6 +110,9 @@ type ScraperSpec struct {
 	// DisplayName is the optional human source name shown in scraper selection
 	// surfaces (a locale map). Absent means clients fall back to ID.
 	DisplayName LocaleString
+	// Attribution is the credit the data source's terms require wherever its
+	// metadata is shown; nil when the source requires none.
+	Attribution *Attribution
 	Kind        string
 	// Endpoint is the base URL (https required outside tests).
 	Endpoint string
@@ -343,6 +346,15 @@ type EntityMap struct {
 	ArtworkURLTemplate string
 }
 
+// Attribution is a data source's required credit as pure data: the text
+// clients show (a locale map with an "en" anchor) and the https link it points
+// at. Clients render it next to metadata the source provided and in their
+// credits view.
+type Attribution struct {
+	Text LocaleString
+	URL  string
+}
+
 // LoginSpec declares the "login-bearer" token exchange as pure data (the
 // TheTVDB v4 POST /login shape): the engine POSTs {SecretField: <secret>}
 // as JSON to Endpoint+Path and uses the string at TokenPath in the JSON
@@ -354,6 +366,12 @@ type LoginSpec struct {
 	SecretField string
 	// TokenPath is the JSON path of the issued token ("data.token").
 	TokenPath string
+	// SecretFields adds further JSON body keys, each carrying the secret named
+	// by its AuthRef value and resolved exactly like the scraper's AuthRef —
+	// for example {"apikey": "tvdb-api-key"} beside a "pin" SecretField whose
+	// AuthRef is the user's subscriber PIN. A missing one fails the exchange
+	// like a missing AuthRef. Nil for a single-secret login.
+	SecretFields map[string]string
 }
 
 // SignatureSpec declares the "signature:<name>" AuthStyle's per-request

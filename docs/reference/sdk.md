@@ -41,7 +41,7 @@ const MediaKindName = "media"
 MediaKindName is the reserved relation target naming the wire entity itself: relations run between Entities and Media.
 
 ```go
-const Version = "0.3.3"
+const Version = "0.3.4"
 ```
 
 Version is the exact SDK semver identity embedded by a Core build.
@@ -446,6 +446,17 @@ type ActionSpec struct {
 ```
 
 ActionSpec is one server-performed Plugin Action Descriptor.
+
+## type Attribution
+
+```go
+type Attribution struct {
+	Text LocaleString
+	URL  string
+}
+```
+
+Attribution is a data source's required credit as pure data: the text clients show (a locale map with an "en" anchor) and the https link it points at. Clients render it next to metadata the source provided and in their credits view.
 
 ## type Bundle
 
@@ -1263,6 +1274,12 @@ type LoginSpec struct {
 	SecretField string
 	// TokenPath is the JSON path of the issued token ("data.token").
 	TokenPath string
+	// SecretFields adds further JSON body keys, each carrying the secret named
+	// by its AuthRef value and resolved exactly like the scraper's AuthRef —
+	// for example {"apikey": "tvdb-api-key"} beside a "pin" SecretField whose
+	// AuthRef is the user's subscriber PIN. A missing one fails the exchange
+	// like a missing AuthRef. Nil for a single-secret login.
+	SecretFields map[string]string
 }
 ```
 
@@ -1526,6 +1543,9 @@ type ScraperSpec struct {
 	// DisplayName is the optional human source name shown in scraper selection
 	// surfaces (a locale map). Absent means clients fall back to ID.
 	DisplayName LocaleString
+	// Attribution is the credit the data source's terms require wherever its
+	// metadata is shown; nil when the source requires none.
+	Attribution *Attribution
 	Kind        string
 	// Endpoint is the base URL (https required outside tests).
 	Endpoint string
