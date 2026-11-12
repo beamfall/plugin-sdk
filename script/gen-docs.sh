@@ -42,7 +42,7 @@ cat > llms.txt <<EOF
 ## API reference (generated)
 
 - [package sdk](docs/reference/sdk.md): plugin identity, Bundle declaration, vocabularies, Parser/MatchScorer and importer Source seams
-- [package catalogindex](docs/reference/catalogindex.md): offline verification and local filtering for the global signed catalog index
+- [package catalogindex](docs/reference/catalogindex.md): offline verification and local filtering for the global signed catalog index, its signed legal metadata and the operator-signed licence policy
 - [package compatibility](docs/reference/compatibility.md): exact producer-owned SDK compatibility evidence for canonical plugin artifacts
 - [package scrobble](docs/reference/scrobble.md): neutral scrobble dispatcher engine, Adapter seam, and types
 - [package sdktest](docs/reference/sdktest.md): cross-plugin conformance harness — golden parse/score vectors, Bundle invariants, and registry admission

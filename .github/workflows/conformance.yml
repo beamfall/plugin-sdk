@@ -71,6 +71,7 @@ jobs:
           go-version-file: go.mod
       - run: gofmt -l . | tee /dev/stderr | (! grep -q .)
       - run: go vet ./...
+      - run: script/gen-docs_test.sh
       - run: script/gate.sh --coverage-only
       - run: script/tool_pin_policy_test.sh
       - run: go -C tools tool govulncheck -C .. ./...

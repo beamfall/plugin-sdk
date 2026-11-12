@@ -142,6 +142,11 @@ if [ "${BEAMFALL_GATE_SELF_TEST:-0}" != 1 ]; then
   script/sdk-consumer-fanout_test.sh
 fi
 
+if [ "${BEAMFALL_GATE_SELF_TEST:-0}" != 1 ]; then
+  echo "== generated docs drift =="
+  script/gen-docs_test.sh
+fi
+
 echo "== release identity =="
 go test ./... -run 'TestReleaseVersion(Context|Invariant)$' -count=1
 while IFS= read -r head_tag; do

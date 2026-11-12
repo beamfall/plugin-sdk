@@ -129,8 +129,10 @@ Core and every plugin import the SDK; neither imports the other. A plugin is com
 not loaded at runtime. Core reads the plugin's `Bundle`, calls its seams, and maps the SDK's types
 to its own storage on its side of the boundary.
 
-The plugin catalog currently admits first-party plugins only. See the
-[registry admission runbook](docs/registry-admission-runbook.md) for what admission checks.
+The plugin catalog currently admits first-party plugins only. Each catalog index entry carries
+signed licence, notice, source, provenance and rights-attestation metadata. These are verified
+against a licence policy that the catalog operator signs. The SDK ships no production policy. See
+the [registry admission runbook](docs/registry-admission-runbook.md) for what admission checks.
 
 ## Documentation
 
@@ -140,7 +142,8 @@ The plugin catalog currently admits first-party plugins only. See the
   [`catalogindex`](docs/reference/catalogindex.md), and
   [`compatibility`](docs/reference/compatibility.md).
 - [Registry admission runbook](docs/registry-admission-runbook.md): the mechanical gates
-  (`sdktest.Admit`) and the manual legality and malware review.
+  (`sdktest.Admit`, including the signed legal-metadata gate) and the manual legality and malware
+  review.
 - [`llms.txt`](llms.txt) and [`llms-full.txt`](llms-full.txt): the same documentation for
   language-model tools.
 

@@ -199,7 +199,7 @@ AdmissionResult is the outcome of Admit: which gate classes passed, and the firs
 func Admit(listing Listing, sdkVersion string) AdmissionResult
 ```
 
-Admit runs the four mechanical admission gates against a listing, in order, stopping at the first failure. sdkVersion is the registry's reference plugin-sdk release (e.g. sdk.Version of the SDK build the registry curates against).
+Admit runs the five mechanical admission gates against a listing, in order, stopping at the first failure. sdkVersion is the registry's reference plugin-sdk release (e.g. sdk.Version of the SDK build the registry curates against).
 
 ## type AuthPlacement
 
@@ -240,7 +240,7 @@ ContextParseVector is one golden contextual filename-parse case. It is separate 
 type GateClass string
 ```
 
-GateClass names one of the four mechanical admission gates required before a plugin listing is admitted to the registry: pass the SDK conformance suite, declare a valid bundle manifest, respect the fail-closed lifecycle contract, and declare an SDK compat range that covers the registry's SDK version. Admission beyond these gates (legality/malware) is a manual review function, not mechanical — see docs/registry-admission-runbook.md.
+GateClass names one of the five mechanical admission gates required before a plugin listing is admitted to the registry: declare a valid bundle manifest, respect the fail-closed lifecycle contract, declare an SDK compat range that covers the registry's SDK version, carry signed legal metadata that verifies against the catalog operator's signed licence policy, and pass the SDK conformance suite. The legal gate checks that the metadata is complete, consistent and attested by a reviewer the policy names; it does not decide whether a licence is acceptable (the policy does) and it is not a malware review — see docs/registry-admission-runbook.md.
 
 ```go
 const (
@@ -248,6 +248,7 @@ const (
 	GateManifest    GateClass = "manifest"
 	GateLifecycle   GateClass = "lifecycle"
 	GateCompatRange GateClass = "compat-range"
+	GateLegal       GateClass = "legal"
 )
 ```
 
@@ -285,6 +286,23 @@ type KindVocab struct {
 
 KindVocab is one declared EntityKind's name + archetype pair. Plugins pin their bundle's Kind vocabulary against a design of record with this shape, so a future rename or archetype change fails the plugin's own gate instead of drifting silently out of sync with the doc.
 
+## type LegalEvidence
+
+```go
+type LegalEvidence struct {
+	Entry  catalogindex.Entry
+	Policy catalogindex.SignedPolicy
+	// Roots maps a registry key ID to its public key. The policy's
+	// RegistryKeyID selects the key that must have signed it; an ID absent
+	// from Roots fails the legal gate.
+	Roots map[string]ed25519.PublicKey
+	At    time.Time
+	Bytes catalogindex.EntryBytes
+}
+```
+
+LegalEvidence is the signed legal metadata for one listing: the catalog entry the registry would publish, the operator's signed licence policy, the registry root keys that sign that policy, the evaluation time (the issue time of the index the entry would join) and the bytes the entry's digests name. The SDK ships no policy, keyring or keys; the catalog operator supplies them.
+
 ## type Listing
 
 ```go
@@ -301,6 +319,9 @@ type Listing struct {
 	// must not silently collide with another plugin's ID or Entity Kind
 	// namespace once both are loaded together).
 	Registry []sdk.Bundle
+	// Legal is the listing's signed legal metadata. A nil Legal fails the
+	// legal gate: nothing is admitted without it.
+	Legal *LegalEvidence
 }
 ```
 
