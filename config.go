@@ -29,6 +29,11 @@ var permissionKinds = []string{
 	"profile-link",
 	"request-ingest",
 	"request-file-mutation",
+	"write-metadata",
+	"write-collections",
+	"write-artwork",
+	"write-watch-state",
+	"read-playback-state",
 }
 
 var permissionPolicies = map[string]PermissionPolicy{
@@ -70,6 +75,31 @@ var permissionPolicies = map[string]PermissionPolicy{
 	"request-file-mutation": {
 		Label:       L("Request file changes"),
 		Description: L("Allows the plugin to move files, move files to Trash, or permanently delete files. File changes require explicit approval and are audited."),
+		HighRisk:    true,
+	},
+	"write-metadata": {
+		Label:       L("Edit metadata"),
+		Description: L("Allows the plugin to change metadata fields on media its approved scope reveals. Metadata edits require explicit approval, are audited and can be undone."),
+		HighRisk:    true,
+	},
+	"write-collections": {
+		Label:       L("Manage collections"),
+		Description: L("Allows the plugin to create collections and add media to them in libraries its approved scope reveals. Collection changes require explicit approval and are audited."),
+		HighRisk:    true,
+	},
+	"write-artwork": {
+		Label:       L("Set artwork"),
+		Description: L("Allows the plugin to replace artwork on media its approved scope reveals. Locked artwork is never replaced. Artwork changes require explicit approval and are audited."),
+		HighRisk:    true,
+	},
+	"write-watch-state": {
+		Label:       L("Change watch state"),
+		Description: L("Allows the plugin to mark media watched or unwatched for one approved profile. Watch-state changes require explicit approval and are audited."),
+		HighRisk:    true,
+	},
+	"read-playback-state": {
+		Label:       L("Read playback state"),
+		Description: L("Allows the plugin to read playback progress for one approved profile. Playback reads require explicit approval and are audited."),
 		HighRisk:    true,
 	},
 }
