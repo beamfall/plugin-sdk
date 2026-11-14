@@ -1,6 +1,9 @@
 package sdk
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 type legacyFilenameParser struct{}
 
@@ -146,6 +149,25 @@ func TestValidateParseHints(t *testing.T) {
 	for name, m := range cases {
 		if err := ValidateParseHints(m); err == nil {
 			t.Errorf("%s: ValidateParseHints accepted %+v", name, m)
+		}
+	}
+}
+
+func TestValidVersionLabel(t *testing.T) {
+	for _, label := range []string{"", "1080p", "Extended", "Director's Cut", "4K HDR"} {
+		if !ValidVersionLabel(label) {
+			t.Errorf("ValidVersionLabel(%q) = false, want true", label)
+		}
+		if err := ValidateVersionLabel(ParsedMedia{Title: "a", VersionLabel: label}); err != nil {
+			t.Errorf("ValidateVersionLabel(%q): %v", label, err)
+		}
+	}
+	for _, label := range []string{" 1080p", "1080p ", " ", "a\tb", "a\x00b", "a\x7fb", "\xff", strings.Repeat("x", MaxVersionLabelLen+1)} {
+		if ValidVersionLabel(label) {
+			t.Errorf("ValidVersionLabel(%q) = true, want false", label)
+		}
+		if err := ValidateVersionLabel(ParsedMedia{Title: "a", VersionLabel: label}); err == nil {
+			t.Errorf("ValidateVersionLabel(%q) accepted an invalid label", label)
 		}
 	}
 }

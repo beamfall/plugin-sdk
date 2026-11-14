@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // ParsedMedia is a filename parser's best guess for one unidentified file.
@@ -39,6 +40,44 @@ type ParsedMedia struct {
 	// one of ParseHintSources ("filename", "nfo", "sidecar"). Empty when
 	// ProviderIDs is nil; required non-empty when ProviderIDs is populated.
 	HintSource ParseHintSource
+	// VersionLabel names which version of a title this file is when one title
+	// ships as several files (shape-named: a resolution, cut or edition label
+	// such as "1080p" or "Extended"). Empty means the file carries no version
+	// label (the default version, and the legacy shape). Core groups the
+	// non-part files of one directory that parse to the same title, year and
+	// ordinals under one Media as Versions only when at least one of them
+	// carries a label, and shows the label in every client's version picker.
+	// Must satisfy ValidVersionLabel.
+	VersionLabel string
+}
+
+// MaxVersionLabelLen bounds ParsedMedia.VersionLabel in bytes.
+const MaxVersionLabelLen = 64
+
+// ValidVersionLabel reports whether label is a legal ParsedMedia.VersionLabel:
+// empty, or trimmed non-blank printable text of at most MaxVersionLabelLen
+// bytes with no control characters.
+func ValidVersionLabel(label string) bool {
+	if label == "" {
+		return true
+	}
+	if len(label) > MaxVersionLabelLen || strings.TrimSpace(label) != label {
+		return false
+	}
+	for _, r := range label {
+		if r < 0x20 || r == 0x7f || r == utf8.RuneError {
+			return false
+		}
+	}
+	return true
+}
+
+// ValidateVersionLabel checks the VersionLabel contract on a parse result.
+func ValidateVersionLabel(m ParsedMedia) error {
+	if !ValidVersionLabel(m.VersionLabel) {
+		return fmt.Errorf("VersionLabel %q is not trimmed printable text of at most %d bytes", m.VersionLabel, MaxVersionLabelLen)
+	}
+	return nil
 }
 
 // ParseHintSource is the origin class of a ParsedMedia.ProviderIDs hint — the
