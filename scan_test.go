@@ -154,7 +154,7 @@ func TestValidateParseHints(t *testing.T) {
 }
 
 func TestValidVersionLabel(t *testing.T) {
-	for _, label := range []string{"", "1080p", "Extended", "Director's Cut", "4K HDR"} {
+	for _, label := range []string{"", "1080p", "Extended", "Director's Cut", "4K HDR", "Cut \uFFFD"} {
 		if !ValidVersionLabel(label) {
 			t.Errorf("ValidVersionLabel(%q) = false, want true", label)
 		}
@@ -162,7 +162,7 @@ func TestValidVersionLabel(t *testing.T) {
 			t.Errorf("ValidateVersionLabel(%q): %v", label, err)
 		}
 	}
-	for _, label := range []string{" 1080p", "1080p ", " ", "a\tb", "a\x00b", "a\x7fb", "\xff", strings.Repeat("x", MaxVersionLabelLen+1)} {
+	for _, label := range []string{" 1080p", "1080p ", " ", "a\tb", "a\x00b", "a\x7fb", "1080p\u0085Extended", "\xff", strings.Repeat("x", MaxVersionLabelLen+1)} {
 		if ValidVersionLabel(label) {
 			t.Errorf("ValidVersionLabel(%q) = true, want false", label)
 		}

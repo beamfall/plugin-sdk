@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -61,11 +62,11 @@ func ValidVersionLabel(label string) bool {
 	if label == "" {
 		return true
 	}
-	if len(label) > MaxVersionLabelLen || strings.TrimSpace(label) != label {
+	if len(label) > MaxVersionLabelLen || !utf8.ValidString(label) || strings.TrimSpace(label) != label {
 		return false
 	}
 	for _, r := range label {
-		if r < 0x20 || r == 0x7f || r == utf8.RuneError {
+		if unicode.IsControl(r) {
 			return false
 		}
 	}
