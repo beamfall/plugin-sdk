@@ -134,3 +134,36 @@ func TestRunMatchCorpusHintCaseFailsWithoutHintPath(t *testing.T) {
 		}
 	}
 }
+
+// labelParser returns the path as a VersionLabel, so a vector can carry a
+// label that breaks the VersionLabel contract.
+type labelParser struct{}
+
+func (labelParser) Parse(path string, _ sdk.ParseProbe) (sdk.ParsedMedia, bool) {
+	if path == "" {
+		return sdk.ParsedMedia{}, false
+	}
+	return sdk.ParsedMedia{Title: "Title", Year: 2001, VersionLabel: strings.TrimPrefix(path, "v:")}, true
+}
+
+// TestRunConformanceVersionLabel: a parser that fills VersionLabel is green,
+// and an untrimmed label reds the vector even though it matches its golden.
+func TestRunConformanceVersionLabel(t *testing.T) {
+	const helperEnv = "BEAMFALL_TEST_VERSION_LABEL_BREAK"
+	if os.Getenv(helperEnv) == "1" {
+		sdktest.RunConformance(t, labelParser{}, []sdktest.ParseVector{
+			{Name: "untrimmed", Path: "v: 1080p", WantOK: true, Want: sdk.ParsedMedia{Title: "Title", Year: 2001, VersionLabel: " 1080p"}},
+			{Name: "refused", Path: "", WantOK: false},
+		})
+		return
+	}
+	sdktest.RunConformance(t, labelParser{}, []sdktest.ParseVector{
+		{Name: "labelled", Path: "v:1080p", WantOK: true, Want: sdk.ParsedMedia{Title: "Title", Year: 2001, VersionLabel: "1080p"}},
+		{Name: "unlabelled", Path: "v:", WantOK: true, Want: sdk.ParsedMedia{Title: "Title", Year: 2001}},
+		{Name: "refused", Path: "", WantOK: false},
+	})
+	output := rerunExpectingFailure(t, "^TestRunConformanceVersionLabel$", helperEnv)
+	if !strings.Contains(output, "version label contract") {
+		t.Fatalf("failure output did not name the version label contract:\n%s", output)
+	}
+}

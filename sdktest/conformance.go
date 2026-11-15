@@ -87,6 +87,9 @@ func RunConformance(t *testing.T, p sdk.FilenameParser, vectors []ParseVector) {
 			if err := sdk.ValidateParseHints(got); err != nil {
 				t.Errorf("Parse(%q) hint contract: %v", v.Path, err)
 			}
+			if err := sdk.ValidateVersionLabel(got); err != nil {
+				t.Errorf("Parse(%q) version label contract: %v", v.Path, err)
+			}
 		})
 	}
 }
@@ -122,6 +125,9 @@ func RunContextConformance(t *testing.T, p sdk.ContextFilenameParser, vectors []
 			}
 			if err := sdk.ValidateParseHints(got); err != nil {
 				t.Errorf("ParseWithContext(%q) hint contract: %v", v.Path, err)
+			}
+			if err := sdk.ValidateVersionLabel(got); err != nil {
+				t.Errorf("ParseWithContext(%q) version label contract: %v", v.Path, err)
 			}
 			count := v.Context.DirectoryMediaFileCount
 			if count != sdk.DirectoryMediaFileCountSingle && count != sdk.DirectoryMediaFileCountMultiple {
