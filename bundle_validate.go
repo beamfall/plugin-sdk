@@ -21,6 +21,9 @@ var (
 	accentPattern            = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 	localeTagPattern         = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,8})*$`)
 	configPlaceholderPattern = regexp.MustCompile(`\{config\.([^{}]*)\}`)
+	// referencePlaceholderPattern matches a {ref.<name>:<path>} map-path
+	// placeholder reading a declared ReferenceDocument.
+	referencePlaceholderPattern = regexp.MustCompile(`\{ref\.([^{}:]*):[^{}]*\}`)
 	// sidecarExtPattern is the InteractiveSidecars contract: a lowercase
 	// extension with no dot (bundle.go doc).
 	sidecarExtPattern = regexp.MustCompile(`^[a-z0-9]+$`)
@@ -499,8 +502,17 @@ func ValidateBundle(bundle Bundle) error {
 		if err := ValidateLookupByIDTemplates(scraper); err != nil {
 			return fmt.Errorf("plugin %s: %w", bundle.ID, err)
 		}
+		if err := validateLookupByIDRecordIDPaths(scraper); err != nil {
+			return fmt.Errorf("plugin %s: %w", bundle.ID, err)
+		}
 		if err := validateScraperConfigPlaceholders(bundle.ID, scraper, configFields); err != nil {
 			return err
+		}
+		if err := validateReferenceDocuments(scraper, configFields); err != nil {
+			return fmt.Errorf("plugin %s: scraper %q %w", bundle.ID, scraper.ID, err)
+		}
+		if err := validateCredentialHelp(scraper); err != nil {
+			return fmt.Errorf("plugin %s: scraper %q %w", bundle.ID, scraper.ID, err)
 		}
 		if !ValidateAuthStyle(scraper.AuthStyle) {
 			return fmt.Errorf("plugin %s: scraper %q uses unknown auth style %q (forms: %s)", bundle.ID, scraper.ID, scraper.AuthStyle, strings.Join(AuthStyleForms(), ", "))
@@ -1057,6 +1069,81 @@ func validateConfigField(pluginID ID, label string, field ConfigFieldSpec) error
 	return nil
 }
 
+// validateCredentialHelp checks a scraper's credential presentation: it
+// needs an AuthRef and an "en" label, and links only to an https page.
+func validateCredentialHelp(scraper ScraperSpec) error {
+	help := scraper.CredentialHelp
+	if help == nil {
+		return nil
+	}
+	if scraper.AuthRef == "" {
+		return fmt.Errorf("declares credential help without an AuthRef")
+	}
+	if help.Label["en"] == "" {
+		return fmt.Errorf("credential help needs an \"en\" label")
+	}
+	if err := validateLocaleString(help.Label); err != nil {
+		return fmt.Errorf("credential help label: %w", err)
+	}
+	if help.HelpURL == "" {
+		if len(help.HelpLabel) > 0 {
+			return fmt.Errorf("credential help declares a help label without a help URL")
+		}
+		return nil
+	}
+	u, err := url.Parse(help.HelpURL)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return fmt.Errorf("credential help URL %q must be an absolute https URL", help.HelpURL)
+	}
+	if help.HelpLabel["en"] == "" {
+		return fmt.Errorf("credential help URL needs an \"en\" help label")
+	}
+	if err := validateLocaleString(help.HelpLabel); err != nil {
+		return fmt.Errorf("credential help label: %w", err)
+	}
+	return nil
+}
+
+// maxReferenceDocumentCacheHours caps ReferenceDocument.CacheHours at a year.
+const maxReferenceDocumentCacheHours = 8760
+
+// validateReferenceDocuments checks a scraper's reference documents and that
+// every {ref.<name>:<path>} placeholder in its maps names one of them.
+func validateReferenceDocuments(scraper ScraperSpec, configFields map[string]bool) error {
+	if len(scraper.ReferenceDocuments) > 0 && scraper.Kind != "http-json" {
+		return fmt.Errorf("declares reference documents, which only http-json scrapers support")
+	}
+	for name, doc := range scraper.ReferenceDocuments {
+		if !bundleSlugPattern.MatchString(name) {
+			return fmt.Errorf("reference document name %q must be a lower-case slug", name)
+		}
+		if !strings.HasPrefix(doc.Path, "/") {
+			return fmt.Errorf("reference document %q path %q must start with \"/\"", name, doc.Path)
+		}
+		if strings.Contains(configPlaceholderPattern.ReplaceAllString(doc.Path, ""), "{") {
+			return fmt.Errorf("reference document %q path %q may use only {config.<name>} placeholders", name, doc.Path)
+		}
+		for _, match := range configPlaceholderPattern.FindAllStringSubmatch(doc.Path, -1) {
+			if !configFields[match[1]] {
+				return fmt.Errorf("reference document %q path references undeclared config field %q", name, match[1])
+			}
+		}
+		if doc.CacheHours < 0 || doc.CacheHours > maxReferenceDocumentCacheHours {
+			return fmt.Errorf("reference document %q cache hours %d must be between 0 and %d", name, doc.CacheHours, maxReferenceDocumentCacheHours)
+		}
+	}
+	for _, m := range []map[string]string{scraper.FieldMap, scraper.ArtworkMap, scraper.SearchFieldMap, scraper.SearchArtworkMap} {
+		for key, path := range m {
+			for _, match := range referencePlaceholderPattern.FindAllStringSubmatch(path, -1) {
+				if _, ok := scraper.ReferenceDocuments[match[1]]; !ok {
+					return fmt.Errorf("map entry %q references undeclared reference document %q", key, match[1])
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func validateScraperConfigPlaceholders(pluginID ID, scraper ScraperSpec, configFields map[string]bool) error {
 	templates := []struct {
 		name  string
@@ -1124,6 +1211,8 @@ func validateLocalFileScraper(pluginID ID, scraper ScraperSpec) error {
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q: it emits a fixed generic field set, not document-path field maps", pluginID, scraper.ID, scraper.Kind)
 	case len(scraper.EntityMaps) != 0:
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare entity maps", pluginID, scraper.ID, scraper.Kind)
+	case scraper.CredentialHelp != nil || len(scraper.ReferenceDocuments) != 0 || len(scraper.LookupByIDRecordIDPaths) != 0:
+		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare credential help, reference documents or an id-lookup record path", pluginID, scraper.ID, scraper.Kind)
 	}
 	return nil
 }
@@ -1393,4 +1482,25 @@ func releaseTriple(v string) [3]int {
 		out[i] = n
 	}
 	return out
+}
+
+// validateLookupByIDRecordIDPaths checks that each id-lookup record path
+// resolves a declared LookupByIDTemplate provider into this http-json
+// scraper's own LookupTemplate.
+func validateLookupByIDRecordIDPaths(scraper ScraperSpec) error {
+	if len(scraper.LookupByIDRecordIDPaths) == 0 {
+		return nil
+	}
+	if scraper.Kind != "http-json" || scraper.LookupTemplate == "" {
+		return fmt.Errorf("scraper %q declares LookupByIDRecordIDPaths, which needs an http-json scraper with a LookupTemplate", scraper.ID)
+	}
+	for _, provider := range slices.Sorted(maps.Keys(scraper.LookupByIDRecordIDPaths)) {
+		if _, ok := scraper.LookupByIDTemplate[provider]; !ok {
+			return fmt.Errorf("scraper %q declares LookupByIDRecordIDPaths[%q] without a LookupByIDTemplate for it", scraper.ID, provider)
+		}
+		if strings.TrimSpace(scraper.LookupByIDRecordIDPaths[provider]) == "" {
+			return fmt.Errorf("scraper %q declares an empty LookupByIDRecordIDPaths[%q]", scraper.ID, provider)
+		}
+	}
+	return nil
 }

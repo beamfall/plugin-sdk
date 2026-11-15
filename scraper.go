@@ -125,9 +125,23 @@ type ScraperSpec struct {
 	// AuthStyleForms. Empty means "bearer". Styles only make sense with an
 	// AuthRef.
 	AuthStyle string
+	// CredentialHelp tells clients what the owner enters for AuthRef and
+	// where to get it ("Subscriber PIN", "Subscribe at thetvdb.com"), so a
+	// credential that is not an API key is not presented as one. Nil keeps
+	// the default key presentation. Ignored without an AuthRef.
+	CredentialHelp *CredentialHelp
 	// Login declares the "login-bearer" style's token exchange; nil for
 	// every other style.
 	Login *LoginSpec
+	// ReferenceDocuments names static lookup documents (name → declaration)
+	// that FieldMap, ArtworkMap, SearchFieldMap and SearchArtworkMap paths
+	// may read through a {ref.<name>:<path>} placeholder: the placeholder is
+	// replaced by the scalar at <path> in the named document before the map
+	// path resolves, so data.artworks[type={ref.artwork-types:data[slug=background,recordType=series].id}].image
+	// selects artwork by the source's own type id. A placeholder that does
+	// not resolve leaves its map path unresolved (omitted, never an error).
+	// Names follow the config-field slug shape. http-json scrapers only.
+	ReferenceDocuments map[string]ReferenceDocument
 	// Signature declares the "signature:<name>" style's per-request-signature
 	// archetype; nil for every other style. The declared Archetype must be one
 	// of SignatureArchetypes and must match the AuthStyle's <name> suffix.
@@ -152,11 +166,24 @@ type ScraperSpec struct {
 	// (ValidateLookupByIDTemplates). It may also use LookupTemplate's
 	// {config.<name>} substitutions. Network kinds only.
 	LookupByIDTemplate map[string]string
+	// LookupByIDRecordIDPaths turns chosen LookupByIDTemplate entries into
+	// resolvers, keyed by the same provider: the document that provider's
+	// template fetches is read only for this scraper's own record id at the
+	// path, and the result is the ordinary LookupTemplate lookup of that id.
+	// A source whose external-id endpoint answers with a summary record
+	// (TheTVDB's /search/remoteid/{id} → data[0].series.id) then yields the
+	// same full record as a search match. Providers without an entry map the
+	// fetched document directly. http-json only; requires LookupTemplate, and
+	// every key must name a LookupByIDTemplate provider.
+	LookupByIDRecordIDPaths map[string]string
 	// SearchTemplate builds the free-text identification request; {query}
 	// and the fingerprint variables substitute (a fingerprint-driven search
 	// queries by content identity instead of free text). {page} substitutes
 	// the one-based search page; {config.<name>} substitutes a declared
-	// Bundle.ConfigFields entry. Requires CandidatesPath. Not valid on rss.
+	// Bundle.ConfigFields entry. {year} substitutes the year identification
+	// parsed or knows for the item; when the year is unknown, a query
+	// parameter whose whole value is {year} is dropped from the request
+	// rather than sent empty. Requires CandidatesPath. Not valid on rss.
 	SearchTemplate string
 	// MaxPages caps the number of search pages the engine may fetch. Zero
 	// means one page, preserving existing scrapers.
@@ -169,12 +196,17 @@ type ScraperSpec struct {
 	// the value a chosen candidate feeds back into LookupTemplate's {id}.
 	// Required when both templates are declared.
 	CandidateIDPath string
-	// FieldMap maps core field names (title, summary, year, …) to response
+	// FieldMap maps core field names (title, sortTitle, summary, year, …) to response
 	// paths (dotted JSON path, GraphQL selection path, or RSS element). A JSON
 	// path may use a name[key=value] predicate segment to select the first
 	// array element whose key equals value; value may be a literal or a
 	// {config.<name>} reference. Example:
 	// release_dates.results[iso_3166_1={config.region}].release_dates.0.certification.
+	// A predicate may hold several comma-separated key=value conditions, all
+	// of which must match ([slug=background,recordType=series]). A path may
+	// list alternatives separated by "||": the first alternative that
+	// resolves wins, so a translated value can fall back to the original
+	// (data.translations.nameTranslations[language={config.language}].name||data.name).
 	// Paths resolve against the lookup document, and — when no SearchFieldMap
 	// is declared — against one search candidate element too.
 	FieldMap map[string]string
@@ -372,6 +404,32 @@ type LoginSpec struct {
 	// AuthRef is the user's subscriber PIN. A missing one fails the exchange
 	// like a missing AuthRef. Nil for a single-secret login.
 	SecretFields map[string]string
+}
+
+// CredentialHelp presents a scraper's AuthRef credential to the owner.
+type CredentialHelp struct {
+	// Label names what the owner enters ("Subscriber PIN"); an "en" anchor
+	// is required.
+	Label LocaleString
+	// HelpURL optionally links to where the owner obtains it; an absolute
+	// https URL. Requires HelpLabel.
+	HelpURL string
+	// HelpLabel is the link text for HelpURL ("Subscribe at thetvdb.com").
+	HelpLabel LocaleString
+}
+
+// ReferenceDocument declares a static lookup document a scraper's map paths
+// can read from (TheTVDB's /artwork/types): fetched with the scraper's
+// authorization and cached by the engine, so ids that the source assigns
+// are looked up instead of hard-coded.
+type ReferenceDocument struct {
+	// Path is appended to the scraper Endpoint; must start with "/". It may
+	// use {config.<name>} substitutions and no other placeholder.
+	Path string
+	// CacheHours is how long the engine reuses a fetched copy. Zero means
+	// one week (168 hours), the usual guidance for static lookup endpoints;
+	// it must not be negative or exceed 8760 (one year).
+	CacheHours int
 }
 
 // SignatureSpec declares the "signature:<name>" AuthStyle's per-request

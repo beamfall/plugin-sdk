@@ -23,7 +23,7 @@ var fieldTypes = []string{"text", "number", "date", "flag", "url"}
 // FieldTypes returns the fixed Entity Kind field-schema vocabulary.
 func FieldTypes() []string { return copySlice(fieldTypes) }
 
-var builtinMediaFields = []string{"title", "summary", "year"}
+var builtinMediaFields = []string{"title", "sortTitle", "summary", "year"}
 
 // candidateSignalFields is the closed set of bare FieldMap keys a scraper may
 // map that feed the MatchScorer's Candidate ranking only — they are NOT Media

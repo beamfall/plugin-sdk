@@ -105,3 +105,19 @@ func TestEntityFieldTypesUndeclaredKind(t *testing.T) {
 		t.Errorf("got %+v, want empty map", got)
 	}
 }
+
+// TestClassifyMediaFieldKeySortTitleIsBuiltin: sortTitle is a bare builtin key,
+// so a scraper can supply a Media sort title without declaring a plugin field
+// (CORE-1768).
+func TestClassifyMediaFieldKeySortTitleIsBuiltin(t *testing.T) {
+	route, err := classifyMediaFieldKey("sortTitle", nil)
+	if err != nil {
+		t.Fatalf("ClassifyMediaFieldKey(sortTitle): %v", err)
+	}
+	if !route.Builtin || route.MediaField != "" {
+		t.Errorf("route = %+v, want a bare builtin route", route)
+	}
+	if _, err := classifyMediaFieldKey("sorttitle", nil); err == nil {
+		t.Error("ClassifyMediaFieldKey(sorttitle) = nil error, want the typo rejected")
+	}
+}
