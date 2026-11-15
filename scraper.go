@@ -125,6 +125,11 @@ type ScraperSpec struct {
 	// AuthStyleForms. Empty means "bearer". Styles only make sense with an
 	// AuthRef.
 	AuthStyle string
+	// CredentialHelp tells clients what the owner enters for AuthRef and
+	// where to get it ("Subscriber PIN", "Subscribe at thetvdb.com"), so a
+	// credential that is not an API key is not presented as one. Nil keeps
+	// the default key presentation. Ignored without an AuthRef.
+	CredentialHelp *CredentialHelp
 	// Login declares the "login-bearer" style's token exchange; nil for
 	// every other style.
 	Login *LoginSpec
@@ -389,28 +394,15 @@ type LoginSpec struct {
 	// AuthRef is the user's subscriber PIN. A missing one fails the exchange
 	// like a missing AuthRef. Nil for a single-secret login.
 	SecretFields map[string]string
-	// OptionalSecretFields adds JSON body keys that are sent only when their
-	// secret is configured and left out of the body entirely when it is not
-	// (TheTVDB's "pin": a subscriber PIN that user-supported project keys
-	// need and other keys do not). Keyed by body field, distinct from
-	// SecretField and every SecretFields key. Each entry's AuthRef is scoped
-	// and stored like the scraper's AuthRef; Label and HelpURL let clients
-	// show it as an optional credential beside the scraper's key. Nil when
-	// the login has no optional secrets.
-	OptionalSecretFields map[string]OptionalSecret
 }
 
-// OptionalSecret is one optional login secret: the credential it reads and
-// how clients present it beside the scraper's key.
-type OptionalSecret struct {
-	// AuthRef names the secret-store entry, a plain AuthRef like the
-	// scraper's own.
-	AuthRef string
-	// Label names the secret for the owner ("Subscriber PIN"); an "en"
-	// anchor is required.
+// CredentialHelp presents a scraper's AuthRef credential to the owner.
+type CredentialHelp struct {
+	// Label names what the owner enters ("Subscriber PIN"); an "en" anchor
+	// is required.
 	Label LocaleString
-	// HelpURL optionally links to where the owner obtains the secret; an
-	// absolute https URL. Requires HelpLabel.
+	// HelpURL optionally links to where the owner obtains it; an absolute
+	// https URL. Requires HelpLabel.
 	HelpURL string
 	// HelpLabel is the link text for HelpURL ("Subscribe at thetvdb.com").
 	HelpLabel LocaleString

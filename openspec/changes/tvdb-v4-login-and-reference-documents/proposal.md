@@ -1,14 +1,17 @@
-# Optional login secrets, reference documents and map-path alternatives for scrapers
+# Credential help, reference documents and map-path alternatives for scrapers
 
 Tickets: CORE-1127 and CORE-1128 (`queue:core:main`).
 Status: proposed.
 
 ## Why
 
-TheTVDB v4 `POST /login` takes `{apikey, pin}`. The official swagger (v4.8.0, `docs/swagger.yml` in
-`thetvdb/v4-api`, read 2026-11-15) says to send `pin` only with a user-supported key and to remove it
-from the call otherwise. `LoginSpec.SecretFields` entries are required, so a scraper cannot declare a
-PIN that is sent only when the owner saved one.
+TheTVDB v4 `POST /login` takes `{apikey, pin}` (official swagger v4.8.0, `docs/swagger.yml` in
+`thetvdb/v4-api`, read 2026-11-15; the token is valid for one month). CORE-1129 (owner decision
+2026-11-11, completed) already made the subscriber PIN the scraper's AuthRef, with the project key in
+`LoginSpec.SecretFields`, so TheTVDB stays off until a PIN is saved. That decision supersedes the
+optional-PIN shape CORE-1127 first proposed, so this change adds no optional login field. What
+CORE-1127 still needs is presentation: clients label the AuthRef as an API key and cannot say it is a
+PIN or link to where to get one.
 
 The same swagger and README also ask clients to look artwork types up in `/artwork/types` (cached for
 a week or longer) instead of hard-coding type ids, to use `year` on `/search`, and to read translations
@@ -18,9 +21,8 @@ predicate and a fallback between two paths.
 
 ## What Changes
 
-- `LoginSpec.OptionalSecretFields map[string]OptionalSecret`: a login body field sent only when its
-  secret is configured and left out of the body otherwise. `OptionalSecret` carries the AuthRef, a
-  label and an optional https help link, so clients can show it beside the scraper's key.
+- `ScraperSpec.CredentialHelp *CredentialHelp`: what the owner enters for the AuthRef ("Subscriber
+  PIN") and an optional https link to where to get it ("Subscribe at thetvdb.com").
 - `ScraperSpec.ReferenceDocuments map[string]ReferenceDocument`: static documents (path plus cache
   hours, default one week) that map paths read through `{ref.<name>:<path>}` placeholders.
 - Documented map-path syntax: multi-condition predicates (`[slug=background,recordType=series]`) and
@@ -31,7 +33,7 @@ predicate and a fallback between two paths.
 
 ## Impact
 
-Additive and source-compatible: a scraper that sets neither field validates and runs as before. The
-engine behaviour (sending optional fields, fetching and caching reference documents, path
+Additive and source-compatible: a scraper that sets none of the new fields validates and runs as before. The
+engine and client behaviour (presenting credential help, fetching and caching reference documents, path
 alternatives, `{year}`) is core's; core implements it behind its own types until it pins the release
 that carries these fields. Releasing this needs a new SDK tag (v0.3.6), then filmtv and core repins.
