@@ -32,7 +32,8 @@ licence policy is data that the catalog operator signs, and the SDK only verifie
   different identity, a disposition other than `approved`, an attestation whose statement digest or
   signature does not match the entry, and an attestation older than the policy or the maximum age.
 - `MigrateV1` verifies a v1 document and turns its entries into v2 entries only when the caller
-  supplies a legal record for every entry and for no other plugin. Nothing is grandfathered: the
+  supplies a legal record for every entry and for no other plugin, and rejects a v1 index that lists
+  a plugin ID twice (CORE-1021). Nothing is grandfathered: the
   operator still attests and signs a new v2 index.
 - Producer helpers `SignPolicy`, `SignRightsAttestation`, `SignIndex` and `VerifyEntryBytes` let the
   registry build and check entries with its own keys.
