@@ -162,7 +162,7 @@ func TestValidVersionLabel(t *testing.T) {
 			t.Errorf("ValidateVersionLabel(%q): %v", label, err)
 		}
 	}
-	for _, label := range []string{" 1080p", "1080p ", " ", "a\tb", "a\x00b", "a\x7fb", "1080p\u0085Extended", "\xff", strings.Repeat("x", MaxVersionLabelLen+1)} {
+	for _, label := range []string{" 1080p", "1080p ", " ", "a\tb", "a\x00b", "a\x7fb", "1080p\u0085Extended", "a\u200bb", "a\u2028b", "a\u2029b", "\ufeff1080p", "a\u00a0b", "\xff", strings.Repeat("x", MaxVersionLabelLen+1)} {
 		if ValidVersionLabel(label) {
 			t.Errorf("ValidVersionLabel(%q) = true, want false", label)
 		}

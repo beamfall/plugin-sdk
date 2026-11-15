@@ -19,8 +19,10 @@ before.
 
 ### Requirement: Version labels are bounded printable text
 
-The SDK SHALL accept as a version label only the empty string or trimmed text of at most 64 bytes
-with no control characters or invalid UTF-8, and the conformance runners SHALL fail a vector whose
+The SDK SHALL accept as a version label only the empty string or trimmed valid UTF-8 text of at most 64 bytes
+in which every rune is printable (`unicode.IsPrint`; the ASCII space is the only space allowed, and a
+literal U+FFFD is accepted), so control, format and separator runes such as U+200B, U+2028, U+2029
+and U+FEFF are rejected, and the conformance runners SHALL fail a vector whose
 parse result breaks that rule.
 
 #### Scenario: Untrimmed label

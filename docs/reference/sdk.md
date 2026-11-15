@@ -47,7 +47,7 @@ const MediaKindName = "media"
 MediaKindName is the reserved relation target naming the wire entity itself: relations run between Entities and Media.
 
 ```go
-const Version = "0.3.4"
+const Version = "0.3.5"
 ```
 
 Version is the exact SDK semver identity embedded by a Core build.
@@ -385,7 +385,7 @@ ValidProviderIDKey reports whether key is a legal ProviderIDs provider name.
 func ValidVersionLabel(label string) bool
 ```
 
-ValidVersionLabel reports whether label is a legal ParsedMedia.VersionLabel: empty, or trimmed non-blank printable text of at most MaxVersionLabelLen bytes with no control characters.
+ValidVersionLabel reports whether label is a legal ParsedMedia.VersionLabel: empty, or trimmed non-blank valid UTF-8 of at most MaxVersionLabelLen bytes in which every rune is printable per unicode.IsPrint (the ASCII space is the only space allowed). Control, format and separator runes such as U+200B, U+2028, U+2029 and U+FEFF are rejected; a literal U+FFFD is accepted.
 
 ## func ValidateAuthStyle
 

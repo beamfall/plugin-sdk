@@ -165,6 +165,27 @@ func TestMigrateV1RequiresALegalRecordPerEntry(t *testing.T) {
 	}
 }
 
+// TestMigrateV1RejectsDuplicatePluginIDs signs a v1 index that lists one
+// plugin twice. Without the duplicate check the entry count would match the
+// two legal records and the extra record would be silently dropped.
+func TestMigrateV1RejectsDuplicatePluginIDs(t *testing.T) {
+	old := legacyEntry{PluginID: "music", Version: "2.1.0", SDKFloor: "1.2.0", SDKCeiling: "2.0.0", ArtifactSHA256: strings.Repeat("b", 64), DeliveryRef: "delivery-music-2"}
+	index := legacyIndex{SchemaVersion: legacySchemaVersion, Sequence: 7, IssuedAt: fixtureIssuedAt, Entries: []legacyEntry{old, old}}
+	sig, err := sign(fixtureKey("registry"), legacySigningPayload{Index: index, RegistryKeyID: fixtureRegistryKeyID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(legacySignedIndex{Index: index, RegistryKeyID: fixtureRegistryKeyID, Signature: sig})
+	if err != nil {
+		t.Fatal(err)
+	}
+	legal := map[string]Legal{"music": fixtureLegal("music", "2.1.0"), "filmtv": fixtureLegal("filmtv", "1.4.2")}
+	got, err := MigrateV1(raw, fixtureRoots(), legal)
+	if !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "duplicate v1 plugin") || got != nil {
+		t.Fatalf("MigrateV1(duplicate ids) = %v, %v; want a duplicate %v", got, err, ErrInvalid)
+	}
+}
+
 // TestLegalMetadataMutationsFailClosed breaks the signed fixture one way at
 // a time. Each case is re-signed by the registry, so the rejection comes from
 // the legal rule, not from the outer signature.
