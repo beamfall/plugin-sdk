@@ -45,6 +45,11 @@ func TestPermissionPolicyCoversClosedVocabulary(t *testing.T) {
 		"profile-link":          true,
 		"request-ingest":        true,
 		"request-file-mutation": true,
+		"write-metadata":        true,
+		"write-collections":     true,
+		"write-artwork":         true,
+		"write-watch-state":     true,
+		"read-playback-state":   true,
 	}
 	if _, ok := PermissionPolicyFor("not-a-permission"); ok {
 		t.Fatal("PermissionPolicyFor accepted an unknown permission")
