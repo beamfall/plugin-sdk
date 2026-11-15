@@ -502,8 +502,8 @@ func ValidateBundle(bundle Bundle) error {
 		if err := ValidateLookupByIDTemplates(scraper); err != nil {
 			return fmt.Errorf("plugin %s: %w", bundle.ID, err)
 		}
-		if scraper.LookupByIDRecordIDPath != "" && (scraper.LookupTemplate == "" || len(scraper.LookupByIDTemplate) == 0) {
-			return fmt.Errorf("plugin %s: scraper %q declares LookupByIDRecordIDPath without both a LookupTemplate and a LookupByIDTemplate", bundle.ID, scraper.ID)
+		if err := validateLookupByIDRecordIDPaths(scraper); err != nil {
+			return fmt.Errorf("plugin %s: %w", bundle.ID, err)
 		}
 		if err := validateScraperConfigPlaceholders(bundle.ID, scraper, configFields); err != nil {
 			return err
@@ -1211,7 +1211,7 @@ func validateLocalFileScraper(pluginID ID, scraper ScraperSpec) error {
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q: it emits a fixed generic field set, not document-path field maps", pluginID, scraper.ID, scraper.Kind)
 	case len(scraper.EntityMaps) != 0:
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare entity maps", pluginID, scraper.ID, scraper.Kind)
-	case scraper.CredentialHelp != nil || len(scraper.ReferenceDocuments) != 0 || scraper.LookupByIDRecordIDPath != "":
+	case scraper.CredentialHelp != nil || len(scraper.ReferenceDocuments) != 0 || len(scraper.LookupByIDRecordIDPaths) != 0:
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare credential help, reference documents or an id-lookup record path", pluginID, scraper.ID, scraper.Kind)
 	}
 	return nil
@@ -1482,4 +1482,25 @@ func releaseTriple(v string) [3]int {
 		out[i] = n
 	}
 	return out
+}
+
+// validateLookupByIDRecordIDPaths checks that each id-lookup record path
+// resolves a declared LookupByIDTemplate provider into this http-json
+// scraper's own LookupTemplate.
+func validateLookupByIDRecordIDPaths(scraper ScraperSpec) error {
+	if len(scraper.LookupByIDRecordIDPaths) == 0 {
+		return nil
+	}
+	if scraper.Kind != "http-json" || scraper.LookupTemplate == "" {
+		return fmt.Errorf("scraper %q declares LookupByIDRecordIDPaths, which needs an http-json scraper with a LookupTemplate", scraper.ID)
+	}
+	for _, provider := range slices.Sorted(maps.Keys(scraper.LookupByIDRecordIDPaths)) {
+		if _, ok := scraper.LookupByIDTemplate[provider]; !ok {
+			return fmt.Errorf("scraper %q declares LookupByIDRecordIDPaths[%q] without a LookupByIDTemplate for it", scraper.ID, provider)
+		}
+		if strings.TrimSpace(scraper.LookupByIDRecordIDPaths[provider]) == "" {
+			return fmt.Errorf("scraper %q declares an empty LookupByIDRecordIDPaths[%q]", scraper.ID, provider)
+		}
+	}
+	return nil
 }

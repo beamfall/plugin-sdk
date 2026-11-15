@@ -43,15 +43,16 @@ request.
 
 ### Requirement: External-id lookups may resolve to the scraper's own record
 
-When `LookupByIDRecordIDPath` is set, the document a `LookupByIDTemplate` fetches SHALL be read only
-for the scraper's own record id at that path, and the lookup result SHALL be the `LookupTemplate`
-lookup of that id. Declaring it without both a `LookupTemplate` and a `LookupByIDTemplate`, or on a
-local-file scraper, SHALL fail bundle validation.
+When `LookupByIDRecordIDPaths` has an entry for a provider, the document that provider's
+`LookupByIDTemplate` fetches SHALL be read only for the scraper's own record id at that path, and the
+lookup result SHALL be the `LookupTemplate` lookup of that id. Providers without an entry SHALL map
+their document directly. An entry for a provider with no `LookupByIDTemplate`, on a scraper that is
+not http-json or has no `LookupTemplate`, or on a local-file scraper SHALL fail bundle validation.
 
 #### Scenario: IMDb id resolves to the extended record
 
-- **WHEN** `LookupByIDTemplate["imdb"]` is `/search/remoteid/{id}`, `LookupByIDRecordIDPath` is
-  `data.0.series.id` and `LookupTemplate` is `/series/{id}/extended?meta=translations`
+- **WHEN** `LookupByIDTemplate["imdb"]` is `/search/remoteid/{id}`, `LookupByIDRecordIDPaths["imdb"]`
+  is `data.0.series.id` and `LookupTemplate` is `/series/{id}/extended?meta=translations`
 - **THEN** an IMDb lookup fetches the remote-id document, reads the series id, and maps the extended
   record of that id
 

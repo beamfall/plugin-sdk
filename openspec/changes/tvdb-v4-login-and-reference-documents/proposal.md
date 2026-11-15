@@ -29,10 +29,11 @@ predicate and a fallback between two paths.
   `||` alternatives where the first path that resolves wins.
 - Documented `{year}` on `SearchTemplate`: substituted when known, and a query parameter whose whole
   value is `{year}` is dropped when it is not.
-- `ScraperSpec.LookupByIDRecordIDPath`: when set, a `LookupByIDTemplate` document (TheTVDB's
-  `/search/remoteid/{id}`, which answers with a base record that has no overview or translations)
-  is read only for the scraper's own record id, and the result is the ordinary `LookupTemplate`
-  lookup of that id, so an IMDb or TMDB id yields the same full record as a search match.
+- `ScraperSpec.LookupByIDRecordIDPaths` (keyed by `LookupByIDTemplate` provider, http-json only):
+  that provider's document (TheTVDB's `/search/remoteid/{id}`, a base record with no overview or
+  translations) is read only for the scraper's own record id, and the result is the ordinary
+  `LookupTemplate` lookup of that id, so an IMDb or TMDB id yields the same full record as a search
+  match. Providers without an entry (TheTVDB's own `tvdb` id) map their document directly.
 - Validation for the new declarations; the local-file (exif) kind rejects all three outright.
 
 ## Impact
