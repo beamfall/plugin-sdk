@@ -41,8 +41,9 @@ type legacySigningPayload struct {
 // MigrateV1 is the only migration path for an existing schema version 1
 // index. It verifies the v1 document's registry signature against roots,
 // then returns its entries as v2 entries carrying legal[plugin ID]. It fails
-// closed when any v1 entry has no legal record or legal names a plugin the
-// v1 index does not list: nothing is grandfathered. The result is not an
+// closed when any v1 entry has no legal record, the v1 index lists a plugin ID
+// more than once, or legal names a plugin the v1 index does not list: nothing
+// is grandfathered. The result is not an
 // admitted catalog: the operator still has every entry attested under its
 // signed policy (SignRightsAttestation), signs a new v2 index at a higher
 // sequence (SignIndex) and checks it with ParseAndVerify.
@@ -68,7 +69,12 @@ func MigrateV1(raw []byte, roots map[string]ed25519.PublicKey, legal map[string]
 		return nil, err
 	}
 	entries := make([]Entry, 0, len(signed.Index.Entries))
+	seenIDs := make(map[string]struct{}, len(signed.Index.Entries))
 	for _, old := range signed.Index.Entries {
+		if _, dup := seenIDs[old.PluginID]; dup {
+			return nil, fmt.Errorf("%w: duplicate v1 plugin %q", ErrInvalid, old.PluginID)
+		}
+		seenIDs[old.PluginID] = struct{}{}
 		record, ok := legal[old.PluginID]
 		if !ok {
 			return nil, fmt.Errorf("%w: no legal record for v1 plugin %q", ErrInvalid, old.PluginID)

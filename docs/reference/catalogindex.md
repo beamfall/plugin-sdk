@@ -127,7 +127,7 @@ Filter returns only installed plugin IDs from an already verified index. It perf
 func MigrateV1(raw []byte, roots map[string]ed25519.PublicKey, legal map[string]Legal) ([]Entry, error)
 ```
 
-MigrateV1 is the only migration path for an existing schema version 1 index. It verifies the v1 document's registry signature against roots, then returns its entries as v2 entries carrying legal\[plugin ID]. It fails closed when any v1 entry has no legal record or legal names a plugin the v1 index does not list: nothing is grandfathered. The result is not an admitted catalog: the operator still has every entry attested under its signed policy (SignRightsAttestation), signs a new v2 index at a higher sequence (SignIndex) and checks it with ParseAndVerify.
+MigrateV1 is the only migration path for an existing schema version 1 index. It verifies the v1 document's registry signature against roots, then returns its entries as v2 entries carrying legal\[plugin ID]. It fails closed when any v1 entry has no legal record, the v1 index lists a plugin ID more than once, or legal names a plugin the v1 index does not list: nothing is grandfathered. The result is not an admitted catalog: the operator still has every entry attested under its signed policy (SignRightsAttestation), signs a new v2 index at a higher sequence (SignIndex) and checks it with ParseAndVerify.
 
 ## type EntryBytes
 

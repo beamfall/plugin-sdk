@@ -1,6 +1,13 @@
 # Compatibility
 
-`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.3.4`.
+`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.3.5`,
+cut from the `release/v0.3` branch. `main` carries the catalog index schema v2
+break described below, which no tagged release contains yet and which ships as
+`v0.4.0`. `const Version` on `main` stays at `0.3.4`, the release the
+compatibility matrix rows were proved against, until the `v0.4.0` release
+candidate re-records the matrix from plugins re-released against it (CORE-1013).
+Moving it earlier would fail every first-party plugin's conformance against
+`main`.
 
 `const Version` in `bundle.go` is the source of truth for the SDK artifact's
 exact identity. Released source MUST match the release tag it ships under, and
@@ -37,6 +44,37 @@ the next unused semver before it is tagged.
 - `CompatibleWithSDK` compares versions per SemVer §11 precedence: a pre-release
   (e.g. `0.1.6-rc1`) sorts **below** its release triple (`0.1.6`), so an rc does
   not satisfy a floor set to that release; build metadata (`+…`) is ignored.
+
+## v0.4.0: catalog index schema v2
+
+`catalogindex` moves from schema version 1 to version 2 (CORE-0523). This is an
+API and wire break, so it ships as a minor release.
+
+- Every `Entry` carries a signed `Legal` record: a canonical SPDX licence
+  expression, notice files with SHA-256 digests, the source repository, source
+  commit and source-archive digest, an optional source offer, a
+  build-provenance digest, and a rights attestation signed by a reviewer named
+  in the policy keyring.
+- `SignedIndex` embeds the operator's signed licence `Policy` (allowed SPDX
+  expressions and their source-offer rules, the reviewer keyring, the maximum
+  attestation age), and `Index.PolicySHA256` binds the index to it.
+  `ParseAndVerify` checks the registry signature, the policy signature and
+  binding, and every entry's legal metadata, failing closed on any gap.
+- `ParseAndVerify` rejects a version 1 document with `ErrLegacySchema`.
+  `MigrateV1` verifies a v1 document's signature and turns its entries into v2
+  entries given one legal record per plugin; the operator then attests each
+  entry (`SignRightsAttestation`) and signs a new v2 index at a higher sequence
+  (`SignIndex`).
+- New exported surface: `Legal`, `Notice`, `RightsAttestation`, `Policy`,
+  `PolicyLicense`, `PolicyReviewer`, `SignedPolicy`, `EntryBytes`,
+  `PolicyDigest`, `AttestationStatement`, `VerifyEntry`, `VerifyEntryBytes`,
+  `SignPolicy`, `SignRightsAttestation`, `SignIndex`, `MigrateV1` and the
+  legal error sentinels.
+
+Consumers of `catalogindex` (core and beamfall-cloud) must publish and read v2
+catalogs when they adopt `v0.4.0`; a v1 catalog no longer verifies. The
+first-party plugins are re-released against `v0.4.0` in the same coordinated
+step, and the compatibility matrix is re-recorded from those releases.
 
 ## Compatibility check
 
