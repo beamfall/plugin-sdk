@@ -96,3 +96,45 @@ func TestValidateBundleReferenceDocuments(t *testing.T) {
 		}
 	}
 }
+
+// TestValidateBundleLookupByIDRecordIDPath: an id-lookup record path turns
+// LookupByIDTemplate into a resolver for the scraper's own record id, so it
+// needs both the resolver template and the record LookupTemplate.
+func TestValidateBundleLookupByIDRecordIDPath(t *testing.T) {
+	valid := func() Bundle {
+		b := scraperBundle()
+		b.Scrapers[0].LookupTemplate = "/series/{id}/extended"
+		b.Scrapers[0].LookupByIDTemplate = map[string]string{"imdb": "/search/remoteid/{id}"}
+		b.Scrapers[0].LookupByIDRecordIDPath = "data.0.series.id"
+		return b
+	}
+	if err := ValidateBundle(valid()); err != nil {
+		t.Fatalf("ValidateBundle rejected an id-lookup record path: %v", err)
+	}
+	noLookup := valid()
+	noLookup.Scrapers[0].LookupTemplate = ""
+	noLookup.Scrapers[0].SearchTemplate = "/search?query={query}"
+	wantBundleError(t, noLookup, "declares LookupByIDRecordIDPath without both")
+	noByID := valid()
+	noByID.Scrapers[0].LookupByIDTemplate = nil
+	wantBundleError(t, noByID, "declares LookupByIDRecordIDPath without both")
+}
+
+// TestValidateBundleLocalFileScraperRejectsNetworkExtras: the local-file
+// `continue` skips the network validators, so the exif kind rejects
+// credential help, reference documents and an id-lookup record path outright.
+func TestValidateBundleLocalFileScraperRejectsNetworkExtras(t *testing.T) {
+	for name, mutate := range map[string]func(*ScraperSpec){
+		"credential help": func(s *ScraperSpec) { s.CredentialHelp = &CredentialHelp{Label: L("PIN")} },
+		"reference documents": func(s *ScraperSpec) {
+			s.ReferenceDocuments = map[string]ReferenceDocument{"types": {Path: "/types"}}
+		},
+		"record id path": func(s *ScraperSpec) { s.LookupByIDRecordIDPath = "data.id" },
+	} {
+		b := exifScraperBundle()
+		mutate(&b.Scrapers[0])
+		if err := ValidateBundle(b); err == nil || !strings.Contains(err.Error(), `is a local-file kind "exif" and must not declare credential help`) {
+			t.Errorf("%s: got %v, want a local-file rejection", name, err)
+		}
+	}
+}

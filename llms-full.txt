@@ -2258,6 +2258,15 @@ type ScraperSpec struct {
 	// (ValidateLookupByIDTemplates). It may also use LookupTemplate's
 	// {config.<name>} substitutions. Network kinds only.
 	LookupByIDTemplate map[string]string
+	// LookupByIDRecordIDPath, when set, makes every LookupByIDTemplate a
+	// resolver: the document it fetches is read only for this scraper's own
+	// record id at this path, and the result is the ordinary LookupTemplate
+	// lookup of that id. A source whose external-id endpoint answers with a
+	// summary record (TheTVDB's /search/remoteid/{id} → data[0].series.id)
+	// then yields the same full record as a search match. Empty keeps the
+	// fetched document as the lookup document. Requires LookupTemplate and
+	// LookupByIDTemplate.
+	LookupByIDRecordIDPath string
 	// SearchTemplate builds the free-text identification request; {query}
 	// and the fingerprint variables substitute (a fingerprint-driven search
 	// queries by content identity instead of free text). {page} substitutes
