@@ -4,7 +4,8 @@
 - [x] 1.2 Add `ScraperSpec.ReferenceDocuments` and `ReferenceDocument`
 - [x] 1.3 Validate credential help and reference documents, including `{ref.<name>:<path>}` placeholders
 - [x] 1.4 Document multi-condition predicates, `||` alternatives and `{year}`
-- [x] 1.5 Regenerate docs with `script/gen-docs.sh`
+- [x] 1.5 Add `ScraperSpec.LookupByIDRecordIDPath` and reject the new fields on local-file scrapers
+- [x] 1.6 Regenerate docs with `script/gen-docs.sh`
 
 ## 2. Prove
 

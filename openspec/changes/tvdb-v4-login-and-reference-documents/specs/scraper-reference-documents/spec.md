@@ -40,3 +40,22 @@ request.
 
 - **WHEN** the template is `/search?query={query}&year={year}` and the year is unknown
 - **THEN** the request is `/search?query=<query>` with no `year` parameter
+
+### Requirement: External-id lookups may resolve to the scraper's own record
+
+When `LookupByIDRecordIDPath` is set, the document a `LookupByIDTemplate` fetches SHALL be read only
+for the scraper's own record id at that path, and the lookup result SHALL be the `LookupTemplate`
+lookup of that id. Declaring it without both a `LookupTemplate` and a `LookupByIDTemplate`, or on a
+local-file scraper, SHALL fail bundle validation.
+
+#### Scenario: IMDb id resolves to the extended record
+
+- **WHEN** `LookupByIDTemplate["imdb"]` is `/search/remoteid/{id}`, `LookupByIDRecordIDPath` is
+  `data.0.series.id` and `LookupTemplate` is `/series/{id}/extended?meta=translations`
+- **THEN** an IMDb lookup fetches the remote-id document, reads the series id, and maps the extended
+  record of that id
+
+#### Scenario: Local-file scraper declares network extras
+
+- **WHEN** an exif scraper declares credential help, reference documents or an id-lookup record path
+- **THEN** bundle validation fails
