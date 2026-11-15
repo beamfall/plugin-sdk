@@ -508,6 +508,9 @@ func ValidateBundle(bundle Bundle) error {
 		if err := validateReferenceDocuments(scraper, configFields); err != nil {
 			return fmt.Errorf("plugin %s: scraper %q %w", bundle.ID, scraper.ID, err)
 		}
+		if err := validateCredentialHelp(scraper); err != nil {
+			return fmt.Errorf("plugin %s: scraper %q %w", bundle.ID, scraper.ID, err)
+		}
 		if !ValidateAuthStyle(scraper.AuthStyle) {
 			return fmt.Errorf("plugin %s: scraper %q uses unknown auth style %q (forms: %s)", bundle.ID, scraper.ID, scraper.AuthStyle, strings.Join(AuthStyleForms(), ", "))
 		}
@@ -525,9 +528,6 @@ func ValidateBundle(bundle Bundle) error {
 				if field == "" || field == login.SecretField || !validAuthRef(ref) {
 					return fmt.Errorf("plugin %s: scraper %q login secret field %q needs a distinct name and a plain AuthRef (got %q)", bundle.ID, scraper.ID, field, ref)
 				}
-			}
-			if err := validateOptionalSecretFields(login); err != nil {
-				return fmt.Errorf("plugin %s: scraper %q %w", bundle.ID, scraper.ID, err)
 			}
 		}
 		if strings.HasPrefix(scraper.AuthStyle, "signature:") != (scraper.Signature != nil) {
@@ -1066,37 +1066,37 @@ func validateConfigField(pluginID ID, label string, field ConfigFieldSpec) error
 	return nil
 }
 
-// validateOptionalSecretFields checks a login's optional secrets: each body
-// field is named, distinct from SecretField and every SecretFields key, reads
-// a plain AuthRef, carries an "en" label, and links only to an https page.
-func validateOptionalSecretFields(login *LoginSpec) error {
-	for field, secret := range login.OptionalSecretFields {
-		_, required := login.SecretFields[field]
-		if field == "" || field == login.SecretField || required || !validAuthRef(secret.AuthRef) {
-			return fmt.Errorf("login optional secret field %q needs a distinct name and a plain AuthRef (got %q)", field, secret.AuthRef)
+// validateCredentialHelp checks a scraper's credential presentation: it
+// needs an AuthRef and an "en" label, and links only to an https page.
+func validateCredentialHelp(scraper ScraperSpec) error {
+	help := scraper.CredentialHelp
+	if help == nil {
+		return nil
+	}
+	if scraper.AuthRef == "" {
+		return fmt.Errorf("declares credential help without an AuthRef")
+	}
+	if help.Label["en"] == "" {
+		return fmt.Errorf("credential help needs an \"en\" label")
+	}
+	if err := validateLocaleString(help.Label); err != nil {
+		return fmt.Errorf("credential help label: %w", err)
+	}
+	if help.HelpURL == "" {
+		if len(help.HelpLabel) > 0 {
+			return fmt.Errorf("credential help declares a help label without a help URL")
 		}
-		if secret.Label["en"] == "" {
-			return fmt.Errorf("login optional secret field %q needs an \"en\" label", field)
-		}
-		if err := validateLocaleString(secret.Label); err != nil {
-			return fmt.Errorf("login optional secret field %q label: %w", field, err)
-		}
-		if secret.HelpURL == "" {
-			if len(secret.HelpLabel) > 0 {
-				return fmt.Errorf("login optional secret field %q declares a help label without a help URL", field)
-			}
-			continue
-		}
-		u, err := url.Parse(secret.HelpURL)
-		if err != nil || u.Scheme != "https" || u.Host == "" {
-			return fmt.Errorf("login optional secret field %q help URL %q must be an absolute https URL", field, secret.HelpURL)
-		}
-		if secret.HelpLabel["en"] == "" {
-			return fmt.Errorf("login optional secret field %q help URL needs an \"en\" help label", field)
-		}
-		if err := validateLocaleString(secret.HelpLabel); err != nil {
-			return fmt.Errorf("login optional secret field %q help label: %w", field, err)
-		}
+		return nil
+	}
+	u, err := url.Parse(help.HelpURL)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return fmt.Errorf("credential help URL %q must be an absolute https URL", help.HelpURL)
+	}
+	if help.HelpLabel["en"] == "" {
+		return fmt.Errorf("credential help URL needs an \"en\" help label")
+	}
+	if err := validateLocaleString(help.HelpLabel); err != nil {
+		return fmt.Errorf("credential help label: %w", err)
 	}
 	return nil
 }

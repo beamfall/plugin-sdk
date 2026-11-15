@@ -5,77 +5,49 @@ import (
 	"testing"
 )
 
-// optionalPINBundle is a login-bearer scraper whose key is the AuthRef and
-// whose subscriber PIN is an optional login field (CORE-1127).
-func optionalPINBundle() Bundle {
+// pinHelpBundle is a login-bearer scraper whose AuthRef is a subscriber PIN
+// presented with a label and a subscribe link (CORE-1127).
+func pinHelpBundle() Bundle {
 	b := scraperBundle()
 	b.Scrapers[0].AuthStyle = "login-bearer"
-	b.Scrapers[0].AuthRef = "example-key"
+	b.Scrapers[0].AuthRef = "example-pin"
 	b.Scrapers[0].Login = &LoginSpec{
-		Path: "/login", SecretField: "apikey", TokenPath: "data.token",
-		OptionalSecretFields: map[string]OptionalSecret{"pin": {
-			AuthRef:   "example-pin",
-			Label:     L("Subscriber PIN"),
-			HelpURL:   "https://example.test/subscribe",
-			HelpLabel: L("Subscribe at example.test"),
-		}},
+		Path: "/login", SecretField: "pin", TokenPath: "data.token",
+		SecretFields: map[string]string{"apikey": "example-key"},
+	}
+	b.Scrapers[0].CredentialHelp = &CredentialHelp{
+		Label:     L("Subscriber PIN"),
+		HelpURL:   "https://example.test/subscribe",
+		HelpLabel: L("Subscribe at example.test"),
 	}
 	return b
 }
 
-// TestValidateBundleLoginOptionalSecretFields: an optional login secret needs
-// a distinct body field, a plain AuthRef, an "en" label and an https help
-// link with its own label.
-func TestValidateBundleLoginOptionalSecretFields(t *testing.T) {
-	if err := ValidateBundle(optionalPINBundle()); err != nil {
-		t.Fatalf("ValidateBundle rejected an optional login secret: %v", err)
+// TestValidateBundleCredentialHelp: credential help needs an AuthRef, an
+// "en" label, and an https help link with its own label.
+func TestValidateBundleCredentialHelp(t *testing.T) {
+	if err := ValidateBundle(pinHelpBundle()); err != nil {
+		t.Fatalf("ValidateBundle rejected credential help: %v", err)
 	}
-	noHelp := optionalPINBundle()
-	noHelp.Scrapers[0].Login.OptionalSecretFields = map[string]OptionalSecret{"pin": {AuthRef: "example-pin", Label: L("PIN")}}
-	if err := ValidateBundle(noHelp); err != nil {
-		t.Fatalf("ValidateBundle rejected an optional secret without a help link: %v", err)
+	noLink := pinHelpBundle()
+	noLink.Scrapers[0].CredentialHelp = &CredentialHelp{Label: L("PIN")}
+	if err := ValidateBundle(noLink); err != nil {
+		t.Fatalf("ValidateBundle rejected credential help without a link: %v", err)
 	}
-	for name, mutate := range map[string]func(*LoginSpec){
-		"same as secret field": func(l *LoginSpec) { l.OptionalSecretFields["apikey"] = l.OptionalSecretFields["pin"] },
-		"same as required field": func(l *LoginSpec) {
-			l.SecretFields = map[string]string{"pin": "other-key"}
+	for name, mutate := range map[string]func(*ScraperSpec){
+		"no auth ref": func(s *ScraperSpec) {
+			s.AuthRef, s.AuthStyle, s.Login = "", "", nil
 		},
-		"empty field": func(l *LoginSpec) { l.OptionalSecretFields[""] = l.OptionalSecretFields["pin"] },
-		"path ref": func(l *LoginSpec) {
-			s := l.OptionalSecretFields["pin"]
-			s.AuthRef = "../secret"
-			l.OptionalSecretFields["pin"] = s
-		},
-		"empty ref": func(l *LoginSpec) {
-			s := l.OptionalSecretFields["pin"]
-			s.AuthRef = ""
-			l.OptionalSecretFields["pin"] = s
-		},
-		"no en label": func(l *LoginSpec) {
-			s := l.OptionalSecretFields["pin"]
-			s.Label = LocaleString{"de": "PIN"}
-			l.OptionalSecretFields["pin"] = s
-		},
-		"http help": func(l *LoginSpec) {
-			s := l.OptionalSecretFields["pin"]
-			s.HelpURL = "http://example.test/x"
-			l.OptionalSecretFields["pin"] = s
-		},
-		"no help text": func(l *LoginSpec) {
-			s := l.OptionalSecretFields["pin"]
-			s.HelpLabel = nil
-			l.OptionalSecretFields["pin"] = s
-		},
-		"help text without link": func(l *LoginSpec) {
-			s := l.OptionalSecretFields["pin"]
-			s.HelpURL = ""
-			l.OptionalSecretFields["pin"] = s
-		},
+		"no en label":            func(s *ScraperSpec) { s.CredentialHelp.Label = LocaleString{"de": "PIN"} },
+		"http help":              func(s *ScraperSpec) { s.CredentialHelp.HelpURL = "http://example.test/x" },
+		"relative help":          func(s *ScraperSpec) { s.CredentialHelp.HelpURL = "/subscribe" },
+		"no help text":           func(s *ScraperSpec) { s.CredentialHelp.HelpLabel = nil },
+		"help text without link": func(s *ScraperSpec) { s.CredentialHelp.HelpURL = "" },
 	} {
-		bad := optionalPINBundle()
-		mutate(bad.Scrapers[0].Login)
-		if err := ValidateBundle(bad); err == nil || !strings.Contains(err.Error(), "optional secret field") {
-			t.Errorf("%s: got %v, want an optional secret field error", name, err)
+		bad := pinHelpBundle()
+		mutate(&bad.Scrapers[0])
+		if err := ValidateBundle(bad); err == nil || !strings.Contains(err.Error(), "credential help") {
+			t.Errorf("%s: got %v, want a credential help error", name, err)
 		}
 	}
 }
