@@ -56,8 +56,10 @@ type ParsedMedia struct {
 const MaxVersionLabelLen = 64
 
 // ValidVersionLabel reports whether label is a legal ParsedMedia.VersionLabel:
-// empty, or trimmed non-blank printable text of at most MaxVersionLabelLen
-// bytes with no control characters.
+// empty, or trimmed non-blank valid UTF-8 of at most MaxVersionLabelLen bytes
+// in which every rune is printable per unicode.IsPrint (the ASCII space is the
+// only space allowed). Control, format and separator runes such as U+200B,
+// U+2028, U+2029 and U+FEFF are rejected; a literal U+FFFD is accepted.
 func ValidVersionLabel(label string) bool {
 	if label == "" {
 		return true
@@ -66,7 +68,8 @@ func ValidVersionLabel(label string) bool {
 		return false
 	}
 	for _, r := range label {
-		if unicode.IsControl(r) {
+		// unicode.IsPrint is true for U+0020 and false for every other space.
+		if !unicode.IsPrint(r) {
 			return false
 		}
 	}
