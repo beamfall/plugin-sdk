@@ -97,27 +97,37 @@ func TestValidateBundleReferenceDocuments(t *testing.T) {
 	}
 }
 
-// TestValidateBundleLookupByIDRecordIDPath: an id-lookup record path turns
-// LookupByIDTemplate into a resolver for the scraper's own record id, so it
-// needs both the resolver template and the record LookupTemplate.
-func TestValidateBundleLookupByIDRecordIDPath(t *testing.T) {
+// TestValidateBundleLookupByIDRecordIDPaths: an id-lookup record path turns
+// one provider's LookupByIDTemplate into a resolver for the scraper's own
+// record id, so it needs that template, a LookupTemplate and http-json.
+func TestValidateBundleLookupByIDRecordIDPaths(t *testing.T) {
 	valid := func() Bundle {
 		b := scraperBundle()
 		b.Scrapers[0].LookupTemplate = "/series/{id}/extended"
-		b.Scrapers[0].LookupByIDTemplate = map[string]string{"imdb": "/search/remoteid/{id}"}
-		b.Scrapers[0].LookupByIDRecordIDPath = "data.0.series.id"
+		b.Scrapers[0].LookupByIDTemplate = map[string]string{
+			"tvdb": "/series/{id}/extended",
+			"imdb": "/search/remoteid/{id}",
+		}
+		b.Scrapers[0].LookupByIDRecordIDPaths = map[string]string{"imdb": "data.0.series.id"}
 		return b
 	}
 	if err := ValidateBundle(valid()); err != nil {
 		t.Fatalf("ValidateBundle rejected an id-lookup record path: %v", err)
 	}
-	noLookup := valid()
-	noLookup.Scrapers[0].LookupTemplate = ""
-	noLookup.Scrapers[0].SearchTemplate = "/search?query={query}"
-	wantBundleError(t, noLookup, "declares LookupByIDRecordIDPath without both")
-	noByID := valid()
-	noByID.Scrapers[0].LookupByIDTemplate = nil
-	wantBundleError(t, noByID, "declares LookupByIDRecordIDPath without both")
+	for name, mutate := range map[string]func(*ScraperSpec){
+		"no lookup template": func(s *ScraperSpec) {
+			s.LookupTemplate, s.SearchTemplate = "", "/search?query={query}"
+		},
+		"undeclared provider": func(s *ScraperSpec) { s.LookupByIDRecordIDPaths["tmdb"] = "data.0.series.id" },
+		"empty path":          func(s *ScraperSpec) { s.LookupByIDRecordIDPaths["imdb"] = " " },
+		"graphql kind":        func(s *ScraperSpec) { s.Kind = "http-graphql" },
+	} {
+		bad := valid()
+		mutate(&bad.Scrapers[0])
+		if err := ValidateBundle(bad); err == nil || !strings.Contains(err.Error(), "LookupByIDRecordIDPaths") {
+			t.Errorf("%s: got %v, want a LookupByIDRecordIDPaths error", name, err)
+		}
+	}
 }
 
 // TestValidateBundleLocalFileScraperRejectsNetworkExtras: the local-file
@@ -129,7 +139,7 @@ func TestValidateBundleLocalFileScraperRejectsNetworkExtras(t *testing.T) {
 		"reference documents": func(s *ScraperSpec) {
 			s.ReferenceDocuments = map[string]ReferenceDocument{"types": {Path: "/types"}}
 		},
-		"record id path": func(s *ScraperSpec) { s.LookupByIDRecordIDPath = "data.id" },
+		"record id path": func(s *ScraperSpec) { s.LookupByIDRecordIDPaths = map[string]string{"imdb": "data.id"} },
 	} {
 		b := exifScraperBundle()
 		mutate(&b.Scrapers[0])
