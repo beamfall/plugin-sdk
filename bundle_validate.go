@@ -21,6 +21,9 @@ var (
 	accentPattern            = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 	localeTagPattern         = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,8})*$`)
 	configPlaceholderPattern = regexp.MustCompile(`\{config\.([^{}]*)\}`)
+	// referencePlaceholderPattern matches a {ref.<name>:<path>} map-path
+	// placeholder reading a declared ReferenceDocument.
+	referencePlaceholderPattern = regexp.MustCompile(`\{ref\.([^{}:]*):[^{}]*\}`)
 	// sidecarExtPattern is the InteractiveSidecars contract: a lowercase
 	// extension with no dot (bundle.go doc).
 	sidecarExtPattern = regexp.MustCompile(`^[a-z0-9]+$`)
@@ -502,6 +505,9 @@ func ValidateBundle(bundle Bundle) error {
 		if err := validateScraperConfigPlaceholders(bundle.ID, scraper, configFields); err != nil {
 			return err
 		}
+		if err := validateReferenceDocuments(scraper, configFields); err != nil {
+			return fmt.Errorf("plugin %s: scraper %q %w", bundle.ID, scraper.ID, err)
+		}
 		if !ValidateAuthStyle(scraper.AuthStyle) {
 			return fmt.Errorf("plugin %s: scraper %q uses unknown auth style %q (forms: %s)", bundle.ID, scraper.ID, scraper.AuthStyle, strings.Join(AuthStyleForms(), ", "))
 		}
@@ -519,6 +525,9 @@ func ValidateBundle(bundle Bundle) error {
 				if field == "" || field == login.SecretField || !validAuthRef(ref) {
 					return fmt.Errorf("plugin %s: scraper %q login secret field %q needs a distinct name and a plain AuthRef (got %q)", bundle.ID, scraper.ID, field, ref)
 				}
+			}
+			if err := validateOptionalSecretFields(login); err != nil {
+				return fmt.Errorf("plugin %s: scraper %q %w", bundle.ID, scraper.ID, err)
 			}
 		}
 		if strings.HasPrefix(scraper.AuthStyle, "signature:") != (scraper.Signature != nil) {
@@ -1052,6 +1061,81 @@ func validateConfigField(pluginID ID, label string, field ConfigFieldSpec) error
 		}
 		if err := validateLocaleString(option.Label); err != nil {
 			return fmt.Errorf("plugin %s: %s %q option %q label: %w", pluginID, label, field.Name, option.Value, err)
+		}
+	}
+	return nil
+}
+
+// validateOptionalSecretFields checks a login's optional secrets: each body
+// field is named, distinct from SecretField and every SecretFields key, reads
+// a plain AuthRef, carries an "en" label, and links only to an https page.
+func validateOptionalSecretFields(login *LoginSpec) error {
+	for field, secret := range login.OptionalSecretFields {
+		_, required := login.SecretFields[field]
+		if field == "" || field == login.SecretField || required || !validAuthRef(secret.AuthRef) {
+			return fmt.Errorf("login optional secret field %q needs a distinct name and a plain AuthRef (got %q)", field, secret.AuthRef)
+		}
+		if secret.Label["en"] == "" {
+			return fmt.Errorf("login optional secret field %q needs an \"en\" label", field)
+		}
+		if err := validateLocaleString(secret.Label); err != nil {
+			return fmt.Errorf("login optional secret field %q label: %w", field, err)
+		}
+		if secret.HelpURL == "" {
+			if len(secret.HelpLabel) > 0 {
+				return fmt.Errorf("login optional secret field %q declares a help label without a help URL", field)
+			}
+			continue
+		}
+		u, err := url.Parse(secret.HelpURL)
+		if err != nil || u.Scheme != "https" || u.Host == "" {
+			return fmt.Errorf("login optional secret field %q help URL %q must be an absolute https URL", field, secret.HelpURL)
+		}
+		if secret.HelpLabel["en"] == "" {
+			return fmt.Errorf("login optional secret field %q help URL needs an \"en\" help label", field)
+		}
+		if err := validateLocaleString(secret.HelpLabel); err != nil {
+			return fmt.Errorf("login optional secret field %q help label: %w", field, err)
+		}
+	}
+	return nil
+}
+
+// maxReferenceDocumentCacheHours caps ReferenceDocument.CacheHours at a year.
+const maxReferenceDocumentCacheHours = 8760
+
+// validateReferenceDocuments checks a scraper's reference documents and that
+// every {ref.<name>:<path>} placeholder in its maps names one of them.
+func validateReferenceDocuments(scraper ScraperSpec, configFields map[string]bool) error {
+	if len(scraper.ReferenceDocuments) > 0 && scraper.Kind != "http-json" {
+		return fmt.Errorf("declares reference documents, which only http-json scrapers support")
+	}
+	for name, doc := range scraper.ReferenceDocuments {
+		if !bundleSlugPattern.MatchString(name) {
+			return fmt.Errorf("reference document name %q must be a lower-case slug", name)
+		}
+		if !strings.HasPrefix(doc.Path, "/") {
+			return fmt.Errorf("reference document %q path %q must start with \"/\"", name, doc.Path)
+		}
+		if strings.Contains(configPlaceholderPattern.ReplaceAllString(doc.Path, ""), "{") {
+			return fmt.Errorf("reference document %q path %q may use only {config.<name>} placeholders", name, doc.Path)
+		}
+		for _, match := range configPlaceholderPattern.FindAllStringSubmatch(doc.Path, -1) {
+			if !configFields[match[1]] {
+				return fmt.Errorf("reference document %q path references undeclared config field %q", name, match[1])
+			}
+		}
+		if doc.CacheHours < 0 || doc.CacheHours > maxReferenceDocumentCacheHours {
+			return fmt.Errorf("reference document %q cache hours %d must be between 0 and %d", name, doc.CacheHours, maxReferenceDocumentCacheHours)
+		}
+	}
+	for _, m := range []map[string]string{scraper.FieldMap, scraper.ArtworkMap, scraper.SearchFieldMap, scraper.SearchArtworkMap} {
+		for key, path := range m {
+			for _, match := range referencePlaceholderPattern.FindAllStringSubmatch(path, -1) {
+				if _, ok := scraper.ReferenceDocuments[match[1]]; !ok {
+					return fmt.Errorf("map entry %q references undeclared reference document %q", key, match[1])
+				}
+			}
 		}
 	}
 	return nil
