@@ -1,13 +1,10 @@
 # Compatibility
 
-`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.3.7`,
-cut from the `release/v0.3` branch and merged forward into `main`. `main` also
-carries the catalog index schema v2 break described below, which no tagged
-release contains yet and which ships as `v0.4.0`. `const Version` on `main`
-stays at `0.3.7`, the release the compatibility matrix rows were proved against,
-until the `v0.4.0` release candidate re-records the matrix from plugins
-re-released against it (CORE-1013). Moving it earlier would fail every
-first-party plugin's conformance against `main`.
+`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.0`,
+cut from `main`; it carries the catalog index schema v2 break described below.
+The previous line, `v0.3.x`, lives on the `release/v0.3` branch (last release
+`v0.3.7`). The compatibility matrix records the first-party plugins re-released
+against `v0.4.0` (CORE-1013).
 
 `const Version` in `bundle.go` is the source of truth for the SDK artifact's
 exact identity. Released source MUST match the release tag it ships under, and

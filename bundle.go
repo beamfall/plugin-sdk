@@ -6,7 +6,7 @@ import "github.com/beamfall/plugin-sdk/scrobble"
 type ID string
 
 // Version is the exact SDK semver identity embedded by a Core build.
-const Version = "0.3.7"
+const Version = "0.4.0"
 
 var storeSensitivities = []string{"adult", "acquisition-adjacent"}
 
