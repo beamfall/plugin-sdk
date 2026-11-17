@@ -145,6 +145,10 @@ func ValidateBundle(bundle Bundle) error {
 		}
 	}
 
+	if err := validateMediaSubtitle(bundle.MediaSubtitle, mediaFields); err != nil {
+		return fmt.Errorf("plugin %s: %w", bundle.ID, err)
+	}
+
 	configFields := map[string]bool{}
 	for _, field := range bundle.ConfigFields {
 		if err := validateConfigField(bundle.ID, "config field", field); err != nil {

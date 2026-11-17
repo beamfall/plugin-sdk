@@ -1,15 +1,15 @@
 ## 1. Build
 
-- [ ] 1.1 Add `Bundle.MediaSubtitle` and its validation
-- [ ] 1.2 Add `RenderMediaSubtitle` and `MediaSubtitleLocales`
-- [ ] 1.3 Regenerate docs with `script/gen-docs.sh`
+- [x] 1.1 Add `Bundle.MediaSubtitle` and its validation
+- [x] 1.2 Add `RenderMediaSubtitle` and `MediaSubtitleLocales`
+- [x] 1.3 Regenerate docs with `script/gen-docs.sh`
 
 ## 2. Prove
 
-- [ ] 2.1 Unit tests: validation accepts declared and structural placeholders, rejects unknown
+- [x] 2.1 Unit tests: validation accepts declared and structural placeholders, rejects unknown
   fields, placeholder-free segments and missing English; rendering drops incomplete segments
-- [ ] 2.2 `openspec validate --all --strict` passes
-- [ ] 2.3 `script/gate.sh` passes on the lane head
+- [x] 2.2 `openspec validate --all --strict` passes
+- [x] 2.3 `script/gate.sh` passes on the lane head
 
 ## 3. Close
 

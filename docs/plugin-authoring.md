@@ -63,6 +63,12 @@ plugin Entity Kinds relate to it).
   assigned at parse/identification time; Core stores and serves them without
   interpreting values. A plugin that subdivides its Media declares a text
   field named `class` keyed to `MediaClassLabels` by convention.
+- **Media subtitle** (`MediaSubtitle`): ordered template segments that tell
+  sibling Media apart on a card or list row, for example `S{sequence}`,
+  `E{index}`, `{episode-title}`. Placeholders name a declared text or number
+  Media field or a structural ordinal (`sequence`, `index`, `index-end`).
+  Hosts render it with `RenderMediaSubtitle`: a segment with a missing value is
+  dropped and the rest join with " · ".
 - **Store sensitivity**: `StoreSensitivity` ("adult" /
   "acquisition-adjacent") is a declared floor that store-distributed clients
   use to suppress the plugin's surfaces; it complements, not replaces, the

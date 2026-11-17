@@ -47,6 +47,12 @@ const MediaKindName = "media"
 MediaKindName is the reserved relation target naming the wire entity itself: relations run between Entities and Media.
 
 ```go
+const MediaSubtitleSeparator = " · "
+```
+
+MediaSubtitleSeparator joins the rendered segments of a MediaSubtitle.
+
+```go
 const Version = "0.4.2"
 ```
 
@@ -226,6 +232,30 @@ func LocalFileScraperKind(kind string) bool
 
 LocalFileScraperKind reports whether a scraper kind reads from the Media's local file rather than a remote endpoint. Local-file kinds skip the https-endpoint and URL-template requirements (they have neither) and run as part of the scan pass, not the network identification pipeline.
 
+## func MediaSubtitleFields
+
+```go
+func MediaSubtitleFields(segments []LocaleString) []string
+```
+
+MediaSubtitleFields returns the sorted, de-duplicated placeholder names the segments use, so a host reads only the values it renders.
+
+## func MediaSubtitleLocales
+
+```go
+func MediaSubtitleLocales(segments []LocaleString) []string
+```
+
+MediaSubtitleLocales returns the sorted locale tags any segment declares, "en" always included when segments exist: the locales a host renders a locale-mapped subtitle for.
+
+## func MediaSubtitleOrdinals
+
+```go
+func MediaSubtitleOrdinals() []string
+```
+
+MediaSubtitleOrdinals returns the structural ordinal names a MediaSubtitle placeholder may use besides declared Media fields. They mirror ParsedMedia's Sequence, Index and IndexEnd.
+
 ## func OrphanPolicies
 
 ```go
@@ -281,6 +311,14 @@ func RelationCardinalities() []string
 ```
 
 RelationCardinalities returns the fixed relation-cardinality vocabulary: "one" means each target is claimed by at most one source entity for the relation (an item belongs to exactly one container), "many" (the default) places no constraint.
+
+## func RenderMediaSubtitle
+
+```go
+func RenderMediaSubtitle(segments []LocaleString, locale string, lookup func(name string) (string, bool)) string
+```
+
+RenderMediaSubtitle renders a bundle's MediaSubtitle for one Media item in one locale. lookup returns the display text of a placeholder name (a declared Media field or a structural ordinal) and whether the item has a value; formatting numbers is the host's job. A segment whose placeholders are not all present is dropped; the rest join with MediaSubtitleSeparator. The result is empty when no segment renders.
 
 ## func ResumeProgressValues
 
@@ -546,6 +584,14 @@ type Bundle struct {
 	// "class" Media field: declared class value → display label. Values a
 	// plugin leaves unmapped fall back to MediaLabel.
 	MediaClassLabels map[string]LocaleString
+	// MediaSubtitle declares how a client tells sibling Media apart: ordered
+	// segments, each a locale-mapped template whose {name} placeholders name a
+	// structural ordinal (MediaSubtitleOrdinals: "sequence", "index",
+	// "index-end") or a declared text or number MediaFields entry. A host
+	// renders it per item with RenderMediaSubtitle: a segment whose
+	// placeholders are not all present is dropped and the rest join with
+	// " · ". Empty means the plugin declares no subtitle.
+	MediaSubtitle []LocaleString
 	// CertificationScale is the plugin's ordered certification scale:
 	// the values of the conventional text Media field
 	// "certification", ordered low→high. A Profile policy ceiling against

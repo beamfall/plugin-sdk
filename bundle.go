@@ -105,6 +105,14 @@ type Bundle struct {
 	// "class" Media field: declared class value → display label. Values a
 	// plugin leaves unmapped fall back to MediaLabel.
 	MediaClassLabels map[string]LocaleString
+	// MediaSubtitle declares how a client tells sibling Media apart: ordered
+	// segments, each a locale-mapped template whose {name} placeholders name a
+	// structural ordinal (MediaSubtitleOrdinals: "sequence", "index",
+	// "index-end") or a declared text or number MediaFields entry. A host
+	// renders it per item with RenderMediaSubtitle: a segment whose
+	// placeholders are not all present is dropped and the rest join with
+	// " · ". Empty means the plugin declares no subtitle.
+	MediaSubtitle []LocaleString
 	// CertificationScale is the plugin's ordered certification scale:
 	// the values of the conventional text Media field
 	// "certification", ordered low→high. A Profile policy ceiling against
