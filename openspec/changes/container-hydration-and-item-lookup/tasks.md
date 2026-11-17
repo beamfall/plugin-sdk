@@ -8,9 +8,9 @@
 ## 2. Prove
 
 - [x] 2.1 Unit tests for valid and invalid item lookups and container maps
-- [ ] 2.2 Every first-party plugin and core compile against the change
-- [ ] 2.3 `openspec validate --all --strict` passes
+- [x] 2.2 Every first-party plugin and core compile against the change
+- [x] 2.3 `openspec validate --all --strict` passes
 
 ## 3. Release (owner approval)
 
-- [ ] 3.1 Tag v0.5.0, then repin filmtv and core
+- [ ] 3.1 Tag v0.4.1, re-release the first-party plugins at that ceiling (filmtv also at that floor), then repin core

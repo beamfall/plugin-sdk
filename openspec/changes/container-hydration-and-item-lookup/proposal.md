@@ -39,4 +39,6 @@ cannot name those values.
 - Code: `scraper.go`, `bundle_validate.go`, their tests, regenerated reference docs.
 - Consumers: `beamfall-plugin-filmtv` declares the TMDB per-episode lookup and the series and season
   container maps; core implements the placeholders, the item lookup and container hydration.
-- Release: an additive minor release (proposed v0.5.0), then repin filmtv and core.
+- Release: an additive, source-compatible patch release (proposed v0.4.1). `CompatibleWithSDK` compares
+  the exact SDK version against each bundle's ceiling, so every first-party plugin is re-released with
+  its ceiling raised, as for v0.4.0; filmtv also raises its floor. Then repin core.
