@@ -1,11 +1,11 @@
 # Compatibility
 
-`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.1`,
-cut from `main`: an additive patch on `v0.4.0` (catalog index schema v2, below)
-that adds scraper per-item lookups and container entity maps. The previous
-line, `v0.3.x`, lives on the `release/v0.3` branch (last release `v0.3.7`). The
-compatibility matrix records the first-party plugins re-released against
-`v0.4.1` (CORE-2335).
+`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.2`,
+cut from `main`. It carries the `v0.4.1` per-item lookups and container entity
+maps and the `v0.4.0` catalog index schema v2 break, both described below. The
+previous line, `v0.3.x`, lives on the `release/v0.3` branch (last release
+`v0.3.7`). The compatibility matrix records the first-party plugins re-released
+against `v0.4.2` (CORE-2335).
 
 `const Version` in `bundle.go` is the source of truth for the SDK artifact's
 exact identity. Released source MUST match the release tag it ships under, and
@@ -42,6 +42,16 @@ the next unused semver before it is tagged.
 - `CompatibleWithSDK` compares versions per SemVer §11 precedence: a pre-release
   (e.g. `0.1.6-rc1`) sorts **below** its release triple (`0.1.6`), so an rc does
   not satisfy a floor set to that release; build metadata (`+…`) is ignored.
+
+## v0.4.2: exact SDK range for every first-party plugin
+
+No API change. `v0.4.1` recorded seven plugins at range `[0.4.0, 0.4.1]`, but a
+plugin's conformance at its declared floor resolves that floor's matrix, and
+the `v0.4.0` matrix has no evidence for a `[0.4.0, 0.4.1]` range, so the
+workspace contract check (which runs conformance at the floor and at the pin)
+could not pass. `v0.4.2` re-records all eight first-party plugins at
+`[0.4.2, 0.4.2]`. Keep a plugin's floor equal to its ceiling unless the floor
+release's own matrix records that exact range.
 
 ## v0.4.1: per-item lookups and container entity maps
 

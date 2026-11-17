@@ -13,7 +13,7 @@ import (
 	sdk "github.com/beamfall/plugin-sdk"
 )
 
-const wantSDKVersion = "0.4.1"
+const wantSDKVersion = "0.4.2"
 
 func matrixBundle(entry Entry) sdk.Bundle {
 	return sdk.Bundle{
@@ -65,8 +65,8 @@ func TestCanonicalMatrixIsExactAndCurrent(t *testing.T) {
 			adult = matrixBundle(entry)
 		}
 	}
-	if adult.ID != "adult" || adult.SDKFloor != "0.4.0" {
-		t.Errorf("adult matrix identity/floor = %s/%s, want adult/0.4.0", adult.ID, adult.SDKFloor)
+	if adult.ID != "adult" || adult.SDKFloor != "0.4.2" {
+		t.Errorf("adult matrix identity/floor = %s/%s, want adult/0.4.2", adult.ID, adult.SDKFloor)
 	}
 	if err := Verify(adult, wantSDKVersion); err != nil {
 		t.Errorf("adult historical floor %s does not verify against recorded SDK %s: %v", adult.SDKFloor, wantSDKVersion, err)
