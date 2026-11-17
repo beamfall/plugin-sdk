@@ -220,6 +220,7 @@ func ValidateBundle(bundle Bundle) error {
 	}
 
 	kinds := map[string]bool{}
+	containerKinds := map[string]bool{}
 	for _, kind := range bundle.EntityKinds {
 		if !bundleSlugPattern.MatchString(kind.Name) {
 			return fmt.Errorf("plugin %s: entity kind %q must be a lowercase slug", bundle.ID, kind.Name)
@@ -228,6 +229,7 @@ func ValidateBundle(bundle Bundle) error {
 			return fmt.Errorf("plugin %s: duplicate entity kind %q", bundle.ID, kind.Name)
 		}
 		kinds[kind.Name] = true
+		containerKinds[kind.Name] = kind.Archetype == "container"
 		if err := validateLocaleString(kind.DisplayName); err != nil {
 			return fmt.Errorf("plugin %s: kind %q display name: %w", bundle.ID, kind.Name, err)
 		}
@@ -589,7 +591,8 @@ func ValidateBundle(bundle Bundle) error {
 				return fmt.Errorf("plugin %s: scraper %q uses unknown transform %q on field %q", bundle.ID, scraper.ID, kind, field)
 			}
 			_, mapped := scraper.FieldMap[field]
-			if _, searchMapped := scraper.SearchFieldMap[field]; !mapped && !searchMapped {
+			_, itemMapped := scraper.ItemFieldMap[field]
+			if _, searchMapped := scraper.SearchFieldMap[field]; !mapped && !searchMapped && !itemMapped {
 				return fmt.Errorf("plugin %s: scraper %q transforms unmapped field %q", bundle.ID, scraper.ID, field)
 			}
 		}
@@ -604,15 +607,24 @@ func ValidateBundle(bundle Bundle) error {
 				return fmt.Errorf("plugin %s: scraper %q declares entity maps without a lookup template to resolve them against", bundle.ID, scraper.ID)
 			}
 		}
+		if err := validateItemLookup(scraper, mediaFields); err != nil {
+			return fmt.Errorf("plugin %s: scraper %q: %w", bundle.ID, scraper.ID, err)
+		}
 		for _, entityMap := range scraper.EntityMaps {
 			if !kinds[entityMap.Kind] {
 				return fmt.Errorf("plugin %s: scraper %q entity map targets undeclared kind %q", bundle.ID, scraper.ID, entityMap.Kind)
 			}
-			if !mediaRelations[entityMap.Kind+"\x00"+entityMap.Relation] {
-				return fmt.Errorf("plugin %s: scraper %q entity map relation %q is not a Media-targeted relation declared on kind %q", bundle.ID, scraper.ID, entityMap.Relation, entityMap.Kind)
-			}
-			if strings.TrimSpace(entityMap.Path) == "" {
-				return fmt.Errorf("plugin %s: scraper %q entity map for kind %q requires a path", bundle.ID, scraper.ID, entityMap.Kind)
+			if entityMap.Container {
+				if err := validateContainerEntityMap(entityMap, containerKinds); err != nil {
+					return fmt.Errorf("plugin %s: scraper %q: %w", bundle.ID, scraper.ID, err)
+				}
+			} else {
+				if !mediaRelations[entityMap.Kind+"\x00"+entityMap.Relation] {
+					return fmt.Errorf("plugin %s: scraper %q entity map relation %q is not a Media-targeted relation declared on kind %q", bundle.ID, scraper.ID, entityMap.Relation, entityMap.Kind)
+				}
+				if strings.TrimSpace(entityMap.Path) == "" {
+					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q requires a path", bundle.ID, scraper.ID, entityMap.Kind)
+				}
 			}
 			if entityMap.ArtworkPath != "" && strings.TrimSpace(entityMap.ArtworkPath) == "" {
 				return fmt.Errorf("plugin %s: scraper %q entity map for kind %q has a blank artwork path", bundle.ID, scraper.ID, entityMap.Kind)
@@ -1132,7 +1144,7 @@ func validateReferenceDocuments(scraper ScraperSpec, configFields map[string]boo
 			return fmt.Errorf("reference document %q cache hours %d must be between 0 and %d", name, doc.CacheHours, maxReferenceDocumentCacheHours)
 		}
 	}
-	for _, m := range []map[string]string{scraper.FieldMap, scraper.ArtworkMap, scraper.SearchFieldMap, scraper.SearchArtworkMap} {
+	for _, m := range []map[string]string{scraper.FieldMap, scraper.ArtworkMap, scraper.SearchFieldMap, scraper.SearchArtworkMap, scraper.ItemFieldMap, scraper.ItemArtworkMap} {
 		for key, path := range m {
 			for _, match := range referencePlaceholderPattern.FindAllStringSubmatch(path, -1) {
 				if _, ok := scraper.ReferenceDocuments[match[1]]; !ok {
@@ -1151,6 +1163,7 @@ func validateScraperConfigPlaceholders(pluginID ID, scraper ScraperSpec, configF
 	}{
 		{name: "lookup", value: scraper.LookupTemplate},
 		{name: "search", value: scraper.SearchTemplate},
+		{name: "item lookup", value: scraper.ItemLookupTemplate},
 	}
 	for provider, template := range scraper.LookupByIDTemplate {
 		templates = append(templates, struct {
@@ -1201,13 +1214,14 @@ func validateLocalFileScraper(pluginID ID, scraper ScraperSpec) error {
 	switch {
 	case scraper.Endpoint != "":
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare an endpoint", pluginID, scraper.ID, scraper.Kind)
-	case scraper.LookupTemplate != "" || scraper.SearchTemplate != "":
+	case scraper.LookupTemplate != "" || scraper.SearchTemplate != "" || scraper.ItemLookupTemplate != "":
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare URL templates", pluginID, scraper.ID, scraper.Kind)
 	case scraper.AuthRef != "" || scraper.AuthStyle != "" || scraper.Login != nil:
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare auth", pluginID, scraper.ID, scraper.Kind)
 	case scraper.CandidatesPath != "" || scraper.CandidateIDPath != "":
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare candidate paths", pluginID, scraper.ID, scraper.Kind)
-	case len(scraper.FieldMap) != 0 || len(scraper.SearchFieldMap) != 0 || len(scraper.ArtworkMap) != 0 || len(scraper.SearchArtworkMap) != 0:
+	case len(scraper.FieldMap) != 0 || len(scraper.SearchFieldMap) != 0 || len(scraper.ArtworkMap) != 0 || len(scraper.SearchArtworkMap) != 0 ||
+		len(scraper.ItemFieldMap) != 0 || len(scraper.ItemArtworkMap) != 0:
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q: it emits a fixed generic field set, not document-path field maps", pluginID, scraper.ID, scraper.Kind)
 	case len(scraper.EntityMaps) != 0:
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare entity maps", pluginID, scraper.ID, scraper.Kind)
@@ -1501,6 +1515,68 @@ func validateLookupByIDRecordIDPaths(scraper ScraperSpec) error {
 		if strings.TrimSpace(scraper.LookupByIDRecordIDPaths[provider]) == "" {
 			return fmt.Errorf("scraper %q declares an empty LookupByIDRecordIDPaths[%q]", scraper.ID, provider)
 		}
+	}
+	return nil
+}
+
+// validateItemLookup checks a scraper's per-item lookup: the item maps need an
+// ItemLookupTemplate, which needs an http-json scraper with a LookupTemplate
+// and must contain {id}; item map keys follow FieldMap's and ArtworkMap's
+// vocabularies.
+func validateItemLookup(scraper ScraperSpec, mediaFields map[string]string) error {
+	if scraper.ItemLookupTemplate == "" {
+		if len(scraper.ItemFieldMap) != 0 || len(scraper.ItemArtworkMap) != 0 {
+			return errors.New("item lookup: declares item maps without an ItemLookupTemplate")
+		}
+		return nil
+	}
+	if scraper.Kind != "http-json" || scraper.LookupTemplate == "" {
+		return errors.New("item lookup: ItemLookupTemplate needs an http-json scraper with a LookupTemplate")
+	}
+	if !strings.Contains(scraper.ItemLookupTemplate, "{id}") {
+		return errors.New("item lookup: ItemLookupTemplate must contain {id}")
+	}
+	if len(scraper.ItemFieldMap) == 0 && len(scraper.ItemArtworkMap) == 0 {
+		return errors.New("item lookup: ItemLookupTemplate declares neither ItemFieldMap nor ItemArtworkMap")
+	}
+	for _, key := range slices.Sorted(maps.Keys(scraper.ItemFieldMap)) {
+		if _, err := classifyMediaFieldKey(key, mediaFields); err != nil {
+			return fmt.Errorf("item field map: %w", err)
+		}
+		if strings.TrimSpace(scraper.ItemFieldMap[key]) == "" {
+			return fmt.Errorf("item field map entry %q has a blank path", key)
+		}
+	}
+	for _, slot := range slices.Sorted(maps.Keys(scraper.ItemArtworkMap)) {
+		if !slices.Contains(ArtworkSlots(), slot) {
+			return fmt.Errorf("item artwork map: unknown artwork slot %q", slot)
+		}
+		if strings.TrimSpace(scraper.ItemArtworkMap[slot]) == "" {
+			return fmt.Errorf("item artwork map entry %q has a blank path", slot)
+		}
+	}
+	return nil
+}
+
+// validateContainerEntityMap checks a Container entity map: it hydrates an
+// existing container Entity, so it names no relation, creates no parent and
+// fetches no secondary documents, and it must hydrate something.
+func validateContainerEntityMap(entityMap EntityMap, containerKinds map[string]bool) error {
+	switch {
+	case !containerKinds[entityMap.Kind]:
+		return fmt.Errorf("container entity map for kind %q: kind is not a container archetype", entityMap.Kind)
+	case entityMap.Relation != "":
+		return fmt.Errorf("container entity map for kind %q must not declare a relation", entityMap.Kind)
+	case entityMap.LookupTemplate != "" || entityMap.LookupIDPath != "" || entityMap.MaxLookups != 0:
+		return fmt.Errorf("container entity map for kind %q must not declare a reference lookup", entityMap.Kind)
+	case entityMap.ParentNamePath != "" || entityMap.ParentRelation != "":
+		return fmt.Errorf("container entity map for kind %q must not declare a parent", entityMap.Kind)
+	case entityMap.OrdinalField != "":
+		return fmt.Errorf("container entity map for kind %q must not declare an ordinal field", entityMap.Kind)
+	case entityMap.NamePath != "":
+		return fmt.Errorf("container entity map for kind %q must not declare a name path", entityMap.Kind)
+	case strings.TrimSpace(entityMap.ArtworkPath) == "" && len(entityMap.FieldMap) == 0:
+		return fmt.Errorf("container entity map for kind %q declares neither an artwork path nor a field map", entityMap.Kind)
 	}
 	return nil
 }

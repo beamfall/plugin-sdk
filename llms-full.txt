@@ -1612,11 +1612,28 @@ type EntityMap struct {
 	// Relation names a Media-targeted relation (ToKind == MediaKindName)
 	// declared on Kind — hydration writes one entity→Media relation row per
 	// hydrated Entity under this name (relations run from the declaring
-	// kind, matching the store's from-entity/to-media row shape).
+	// kind, matching the store's from-entity/to-media row shape). Must be
+	// empty when Container is set.
 	Relation string
+	// Container makes the map hydrate the existing container Entity of Kind
+	// that holds the looked-up Media — directly, or further up its chain of
+	// container Entities — instead of creating and linking a new Entity. The
+	// host built that Entity (from the folder layout or a local mapper); the
+	// map only adds the ArtworkPath image and FieldMap values it resolves,
+	// keeping the Entity's name and its other fields. No Entity of Kind
+	// holding the Media means nothing is hydrated. Kind must be a
+	// "container" archetype; Relation must be empty; NamePath, LookupTemplate,
+	// ParentNamePath, ParentRelation and OrdinalField are rejected; at least
+	// one of ArtworkPath or FieldMap is required. Path may be empty (the
+	// lookup document root) and should resolve to a single object.
+	Container bool
 	// Path is the lookup-document response path of the value(s): a scalar
 	// yields one Entity, an array yields one per element. Unresolved paths
-	// are omitted, never errors — same posture as FieldMap.
+	// are omitted, never errors — same posture as FieldMap. It may name the
+	// {sequence} and {index} placeholders (inside a predicate,
+	// seasons[season_number={sequence}]); a map whose Path names a value the
+	// host does not know is skipped. Required unless Container is set, where
+	// empty means the document root.
 	Path string
 	// NamePath resolves an Entity's name within one element when Path
 	// yields a list of objects ("name" for TMDB's genres). Empty means the
@@ -1657,7 +1674,8 @@ type EntityMap struct {
 	OrdinalField string
 	// LookupTemplate optionally fetches a referenced JSON document per EntityMap
 	// element before resolving NamePath/ArtworkPath/FieldMap/ParentNamePath,
-	// up to MaxLookups. LookupIDPath resolves the per-element ID fed into {id}.
+	// up to MaxLookups. LookupIDPath resolves the per-element ID fed into {id};
+	// {sequence} and {index} substitute as in the scraper's LookupTemplate.
 	// Empty keeps the legacy element-local behavior.
 	LookupTemplate string
 	LookupIDPath   string
@@ -2330,11 +2348,29 @@ type ScraperSpec struct {
 	// LookupTemplate builds the per-item request: path (http-json), GraphQL
 	// query body (http-graphql), or feed URL template (rss). Substitutions:
 	// {id}, the fingerprint variables {phash}, {oshash}, {duration}
-	// (content-identity lookups), and {config.<name>} for a
-	// declared Bundle.ConfigFields entry. Fingerprint values the engine does
-	// not know substitute as the empty string — placeholders never reach a
-	// remote API literally.
+	// (content-identity lookups), the parsed ordinals {sequence} and {index}
+	// (ParsedMedia.Sequence and ParsedMedia.Index of the looked-up Media), and
+	// {config.<name>} for a declared Bundle.ConfigFields entry. Fingerprint
+	// and ordinal values the engine does not know substitute as the empty
+	// string — placeholders never reach a remote API literally.
 	LookupTemplate string
+	// ItemLookupTemplate optionally fetches a per-item document after the
+	// LookupTemplate document: the same {id} plus {sequence} and {index}
+	// address one item inside the looked-up container
+	// ("/tv/{id}/season/{sequence}/episode/{index}"). ItemFieldMap and
+	// ItemArtworkMap map that document, and their values override the
+	// FieldMap/ArtworkMap values for the same field or slot; Transforms apply
+	// by field name as usual. A template naming {sequence} or {index} the host
+	// does not know skips the item fetch, and a failed item fetch leaves the
+	// main mapping unchanged. http-json only; requires LookupTemplate and must
+	// contain {id}.
+	ItemLookupTemplate string
+	// ItemFieldMap maps core field names to ItemLookupTemplate document paths
+	// (FieldMap's addressing and vocabulary). Requires ItemLookupTemplate.
+	ItemFieldMap map[string]string
+	// ItemArtworkMap maps artwork slots to ItemLookupTemplate document paths
+	// (ArtworkMap's addressing and vocabulary). Requires ItemLookupTemplate.
+	ItemArtworkMap map[string]string
 	// LookupByIDTemplate optionally resolves a ParsedMedia.ProviderIDs hint
 	// without a search round-trip: provider key (ProviderIDVocabulary) →
 	// request template in LookupTemplate's shape, with {id} substituting the
@@ -2437,8 +2473,9 @@ type ScraperSpec struct {
 	// each to the identified Media through the declared Relation. Each map may
 	// also populate the Entity's typed fields (FieldMap), its artwork
 	// (ArtworkPath), and a same-Kind parent link (ParentNamePath/
-	// ParentRelation) for hierarchical kinds. JSON documents only (http-json,
-	// http-graphql); requires a LookupTemplate.
+	// ParentRelation) for hierarchical kinds. A Container map instead hydrates
+	// the existing container Entity holding the Media (EntityMap.Container).
+	// JSON documents only (http-json, http-graphql); requires a LookupTemplate.
 	EntityMaps []EntityMap
 	// ImpliedMediaFields declares the Media field values a successful
 	// identification through this scraper implies: declared MediaFields name
