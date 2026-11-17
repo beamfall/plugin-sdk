@@ -13,7 +13,7 @@ import (
 	sdk "github.com/beamfall/plugin-sdk"
 )
 
-const wantSDKVersion = "0.4.0"
+const wantSDKVersion = "0.4.1"
 
 func matrixBundle(entry Entry) sdk.Bundle {
 	return sdk.Bundle{

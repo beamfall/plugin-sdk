@@ -1,10 +1,11 @@
 # Compatibility
 
-`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.0`,
-cut from `main`; it carries the catalog index schema v2 break described below.
-The previous line, `v0.3.x`, lives on the `release/v0.3` branch (last release
-`v0.3.7`). The compatibility matrix records the first-party plugins re-released
-against `v0.4.0` (CORE-1013).
+`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.1`,
+cut from `main`: an additive patch on `v0.4.0` (catalog index schema v2, below)
+that adds scraper per-item lookups and container entity maps. The previous
+line, `v0.3.x`, lives on the `release/v0.3` branch (last release `v0.3.7`). The
+compatibility matrix records the first-party plugins re-released against
+`v0.4.1` (CORE-2335).
 
 `const Version` in `bundle.go` is the source of truth for the SDK artifact's
 exact identity. Released source MUST match the release tag it ships under, and
@@ -41,6 +42,17 @@ the next unused semver before it is tagged.
 - `CompatibleWithSDK` compares versions per SemVer §11 precedence: a pre-release
   (e.g. `0.1.6-rc1`) sorts **below** its release triple (`0.1.6`), so an rc does
   not satisfy a floor set to that release; build metadata (`+…`) is ignored.
+
+## v0.4.1: per-item lookups and container entity maps
+
+An additive, source-compatible patch (CORE-2335). `ScraperSpec` gains
+`ItemLookupTemplate`, `ItemFieldMap` and `ItemArtworkMap` for a second lookup
+per matched item, with the `{sequence}` and `{index}` placeholders, and
+`EntityMap` gains `Container` so a scraper can hydrate the container Entities
+that hold an item (a show and its season). `CompatibleWithSDK` compares the
+exact SDK version against each bundle's ceiling, so the first-party plugins are
+re-released with ceiling `0.4.1`; filmtv uses the new fields and also raises its
+floor to `0.4.1`.
 
 ## v0.4.0: catalog index schema v2
 
