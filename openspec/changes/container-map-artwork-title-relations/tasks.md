@@ -2,7 +2,8 @@
 
 - [ ] 1.1 Add `EntityMap.ArtworkMap`, `TitlePath` and `ContainerRelations` with validation
 - [ ] 1.2 Let a Container map hydrate through `ArtworkMap` or `TitlePath` alone
-- [ ] 1.3 Regenerate docs with `script/gen-docs.sh`
+- [ ] 1.3 `sdktest` container reference traces and the index/predicate path grammar
+- [ ] 1.4 Regenerate docs with `script/gen-docs.sh`
 
 ## 2. Prove
 
