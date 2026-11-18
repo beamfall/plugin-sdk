@@ -45,6 +45,12 @@ type TraceInput struct {
 	// SearchDoc is the decoded JSON search response CandidatesPath resolves the
 	// candidate array from. Nil compiles no candidates.
 	SearchDoc map[string]any
+	// EntityDocs supplies the referenced documents of EntityMaps that declare a
+	// LookupTemplate, keyed by that template with {id} replaced by the
+	// element's LookupIDPath value ("/person/101"). Such a map resolves
+	// NamePath against the referenced document, as the executor does; an
+	// element whose document is absent hydrates nothing.
+	EntityDocs map[string]map[string]any
 }
 
 // AuthPlacement is where a scraper's AuthRef secret rides on a request — the
@@ -151,7 +157,7 @@ func CompileScraperTrace(spec sdk.ScraperSpec, input TraceInput) ScraperTrace {
 		Fields:     resolveFieldMap(spec.FieldMap, spec.Transforms, input.LookupDoc),
 		Artwork:    resolveArtworkMap(spec, spec.ArtworkMap, input.LookupDoc),
 		Candidates: compileCandidates(spec, input),
-		Containers: compileContainers(spec, input.LookupDoc),
+		Containers: compileContainers(spec, input.LookupDoc, input.EntityDocs),
 	}
 }
 

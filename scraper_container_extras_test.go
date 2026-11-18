@@ -18,7 +18,8 @@ func containerExtrasBundle() Bundle {
 // TestValidateBundleContainerMapExtras: a container map with an artwork map,
 // a title path and a sibling relation validates, as does one that only sets
 // the title; unknown slots, blank paths, a duplicated poster, undeclared or
-// Media-targeted container relations, a relation no sibling map declares and
+// Media-targeted container relations, a relation no sibling map declares, one
+// a map of another kind shares and
 // the fields on a non-container map are rejected.
 func TestValidateBundleContainerMapExtras(t *testing.T) {
 	genreMap := EntityMap{Kind: "genre", Relation: "genres", Path: "genres", NamePath: "name"}
@@ -54,6 +55,15 @@ func TestValidateBundleContainerMapExtras(t *testing.T) {
 			*m = EntityMap{Kind: "genre", Relation: "genres", Path: "genres", TitlePath: "name"}
 		}, "without being a container map"},
 	}
+	ambiguous := containerExtrasBundle()
+	ambiguous.EntityKinds = append(ambiguous.EntityKinds, EntityKind{
+		Name: "tag", Archetype: "category", Relations: []RelationSpec{{Name: "genres", ToKind: MediaKindName}},
+	})
+	ambiguous.Scrapers[0].EntityMaps = []EntityMap{genreMap, {Kind: "tag", Relation: "genres", Path: "tags"}, base}
+	if err := ValidateBundle(ambiguous); err == nil || !strings.Contains(err.Error(), "of a kind other than") {
+		t.Fatalf("ValidateBundle = %v, want the shared sibling relation rejected", err)
+	}
+
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			bundle := containerExtrasBundle()

@@ -1636,6 +1636,11 @@ func validateContainerMapExtras(bundle Bundle, scraper ScraperSpec, entityMap En
 		}) {
 			return fmt.Errorf("container entity map for kind %q relation %q names %q, which no %q entity map in the scraper declares", entityMap.Kind, name, sibling, toKind)
 		}
+		if slices.ContainsFunc(scraper.EntityMaps, func(other EntityMap) bool {
+			return !other.Container && other.Kind != toKind && other.Relation == sibling
+		}) {
+			return fmt.Errorf("container entity map for kind %q relation %q names %q, which an entity map of a kind other than %q also declares", entityMap.Kind, name, sibling, toKind)
+		}
 	}
 	return nil
 }

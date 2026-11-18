@@ -36,15 +36,16 @@ type traceEntity struct {
 // document. A map whose Path does not resolve (an ordinal {sequence} path has
 // no offline value) emits nothing. Sibling maps with a LookupTemplate are
 // traced offline: an element without a LookupIDPath value is skipped, at most
-// MaxLookups elements count, and NamePath resolves against the element.
-func compileContainers(spec sdk.ScraperSpec, doc map[string]any) []TraceContainer {
+// MaxLookups elements count, and NamePath resolves against the element's
+// referenced document in entityDocs.
+func compileContainers(spec sdk.ScraperSpec, doc map[string]any, entityDocs map[string]map[string]any) []TraceContainer {
 	if doc == nil {
 		return nil
 	}
 	var siblings []traceEntity
 	for _, entityMap := range spec.EntityMaps {
 		if !entityMap.Container {
-			siblings = append(siblings, traceEntities(entityMap, doc)...)
+			siblings = append(siblings, traceEntities(entityMap, doc, entityDocs)...)
 		}
 	}
 	var containers []TraceContainer
@@ -131,7 +132,7 @@ func nonBlank(fields map[string]string) map[string]string {
 	return fields
 }
 
-func traceEntities(entityMap sdk.EntityMap, doc map[string]any) []traceEntity {
+func traceEntities(entityMap sdk.EntityMap, doc map[string]any, entityDocs map[string]map[string]any) []traceEntity {
 	node, ok := resolveNode(doc, entityMap.Path)
 	if entityMap.Path == "" || !ok {
 		return nil
@@ -145,13 +146,19 @@ func traceEntities(entityMap sdk.EntityMap, doc map[string]any) []traceEntity {
 	for _, element := range elements {
 		object, _ := element.(map[string]any)
 		if entityMap.LookupTemplate != "" {
-			if id, ok := resolvePath(object, entityMap.LookupIDPath); !ok || strings.TrimSpace(id) == "" {
+			id, ok := resolvePath(object, entityMap.LookupIDPath)
+			if !ok || strings.TrimSpace(id) == "" {
 				continue
 			}
 			if entityMap.MaxLookups > 0 && lookups >= entityMap.MaxLookups {
 				break
 			}
 			lookups++
+			referenced, found := entityDocs[strings.ReplaceAll(entityMap.LookupTemplate, "{id}", id)]
+			if !found {
+				continue
+			}
+			element, object = referenced, referenced
 		}
 		var name string
 		if entityMap.NamePath == "" {

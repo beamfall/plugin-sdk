@@ -429,9 +429,11 @@ type EntityMap struct {
 	// ContainerRelations (Container maps only) links the container Entity to
 	// Entities sibling maps hydrate: relation declared on Kind whose ToKind is
 	// an Entity kind → the Relation of a non-container entity map of that
-	// ToKind in the same scraper. The host links the container Entity to every
-	// Entity that sibling map hydrated in the same identification, under the
-	// container relation, keeping the sibling's sort order.
+	// ToKind in the same scraper. No non-container map of another kind may
+	// declare that Relation, so the host matches siblings by Relation alone.
+	// The host links the container Entity to every Entity that sibling map
+	// hydrated in the same identification, under the container relation,
+	// keeping the sibling's sort order.
 	ContainerRelations map[string]string
 }
 
