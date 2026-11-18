@@ -35,7 +35,8 @@ or blank value SHALL keep the existing title.
 ### Requirement: Container maps may link sibling-hydrated Entities
 
 `EntityMap.ContainerRelations` SHALL map a relation declared on the container Kind, whose `ToKind` is an
-Entity kind, to the `Relation` of a non-container entity map of that kind in the same scraper. The host
+Entity kind, to the `Relation` of a non-container entity map of that kind in the same scraper, and no
+non-container map of another kind SHALL declare that `Relation`. The host
 SHALL link the container Entity to each Entity that map hydrated in the same identification, keeping its
 sort order.
 
@@ -47,6 +48,11 @@ sort order.
 #### Scenario: No sibling map
 
 - **WHEN** `ContainerRelations` names a relation that no non-container map of the target kind declares
+- **THEN** `ValidateBundle` returns an error
+
+#### Scenario: Sibling relation shared by another kind
+
+- **WHEN** `ContainerRelations` names a relation that a non-container map of another kind also declares
 - **THEN** `ValidateBundle` returns an error
 
 ### Requirement: Container-only map fields are validated
@@ -83,3 +89,14 @@ when a vector's `Want.Containers` is set, so vectors frozen before this change k
 
 - **WHEN** a vector sets no `Want.Containers`
 - **THEN** container output is not graded
+
+### Requirement: Scraper reference traces read referenced documents
+
+For a sibling map with a `LookupTemplate`, `sdktest.CompileScraperTrace` SHALL resolve each element's
+name against the referenced document the vector supplies in `TraceInput.EntityDocs`, keyed by the template
+with `{id}` replaced, honouring `MaxLookups`. An element without a supplied document SHALL hydrate nothing.
+
+#### Scenario: Cast names from person documents
+
+- **WHEN** a cast element `{"id":1,"name":"Lead"}` has the referenced document `/person/1` named "Lead Actor"
+- **THEN** the container's credit link names "Lead Actor"
