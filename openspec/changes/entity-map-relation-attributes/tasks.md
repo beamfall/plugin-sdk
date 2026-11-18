@@ -9,7 +9,7 @@
 ## 2. Prove
 
 - [x] 2.1 Validation vectors for valid and invalid relation attribute maps, filters and offsets
-- [ ] 2.2 plugin-filmtv and core compile against the change through a local go.work
+- [x] 2.2 plugin-filmtv and core compile against the change through a local go.work
 - [x] 2.3 `openspec validate --all --strict` passes
 
 ## 3. Release (owner approval)
