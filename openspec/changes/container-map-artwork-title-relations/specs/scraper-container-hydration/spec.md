@@ -65,3 +65,21 @@ a container relation that the Kind does not declare toward an Entity kind.
 
 - **WHEN** a non-container map declares `TitlePath`
 - **THEN** `ValidateBundle` returns an error
+
+### Requirement: Scraper reference traces cover Container maps
+
+`sdktest.CompileScraperTrace` SHALL emit each Container map's fields, artwork slots, display title and
+container relation links against the lookup document, resolving the documented path grammar (zero-based
+array indices and `key[k=v,…]` predicates). `RunScraperTraceConformance` SHALL grade containers only
+when a vector's `Want.Containers` is set, so vectors frozen before this change keep passing.
+
+#### Scenario: Show container vector
+
+- **WHEN** a vector's lookup document carries a series name with an accent, a backdrop, `networks[]`,
+  US content ratings, genres and cast, and `Want.Containers` lists the expected show container
+- **THEN** the trace grades the container's fields, artwork, title and links, in sorted relation order
+
+#### Scenario: Vector without containers
+
+- **WHEN** a vector sets no `Want.Containers`
+- **THEN** container output is not graded

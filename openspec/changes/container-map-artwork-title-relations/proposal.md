@@ -27,10 +27,13 @@ the Entity (CORE-2513).
   identification, under the container relation, keeping the sibling's sort order.
 - A Container map may hydrate through any of `ArtworkPath`, `ArtworkMap`, `FieldMap` or `TitlePath`.
 - Validation for all of the above. Additive: existing bundles validate and behave unchanged.
+- `sdktest` scraper reference traces emit Container map results (`ScraperTrace.Containers`), graded
+  only when a vector sets them, and resolve the documented index and predicate path grammar, so a
+  plugin can freeze conformance vectors for its Container maps.
 
 ## Impact
 
-- Code: `scraper.go`, `bundle_validate.go`, tests, regenerated reference docs.
+- Code: `scraper.go`, `bundle_validate.go`, `sdktest/scraper_trace*.go`, tests, regenerated reference docs.
 - Consumers: `beamfall-plugin-filmtv` declares the series backdrop, title and genre/cast links; core
   implements the three fields in its scrape and identify paths.
 - Release: an additive, source-compatible patch release. `CompatibleWithSDK` compares the exact SDK
