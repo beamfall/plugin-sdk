@@ -100,6 +100,13 @@ func TestScraperTraceContainerDiagnostics(t *testing.T) {
 			t.Errorf("violations missing %q:\n%s", fragment, reasons)
 		}
 	}
+	// Links compare structurally: one oddly named link never equals two.
+	merged := got
+	merged.Containers = []TraceContainer{got.Containers[0]}
+	merged.Containers[0].Links = []TraceLink{{Relation: "in-genre", Kind: "genre", Name: "Drama} {in-genre genre Mystery"}}
+	if reasons := scraperTraceViolations(merged, got); len(reasons) == 0 {
+		t.Error("a merged link name passed as two links")
+	}
 	// A vector that sets no Containers does not grade them.
 	unset := got
 	unset.Containers = nil
