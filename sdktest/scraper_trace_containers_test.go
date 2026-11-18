@@ -53,6 +53,16 @@ func containerTraceDoc(t *testing.T) map[string]any {
 	return doc
 }
 
+// containerTraceEntityDocs are the cast's referenced /person/{id} documents:
+// the name comes from the referenced document, not the cast element; person 2
+// has no document, so it hydrates nothing; person 3 is past MaxLookups.
+func containerTraceEntityDocs() map[string]map[string]any {
+	return map[string]map[string]any{
+		"/person/1": {"name": "Lead Actor"},
+		"/person/3": {"name": "Third Actor"},
+	}
+}
+
 func TestScraperTraceContainers(t *testing.T) {
 	want := []TraceContainer{{
 		Kind: "show",
@@ -64,8 +74,7 @@ func TestScraperTraceContainers(t *testing.T) {
 		Artwork: map[string]string{"poster": "https://img.example.test/p.jpg", "backdrop": "https://img.example.test/b.jpg"},
 		Title:   "90 Day Fiancé",
 		Links: []TraceLink{
-			{Relation: "credit", Kind: "person", Name: "Lead"},
-			{Relation: "credit", Kind: "person", Name: "Second"},
+			{Relation: "credit", Kind: "person", Name: "Lead Actor"},
 			{Relation: "in-genre", Kind: "genre", Name: "Drama"},
 			{Relation: "in-genre", Kind: "genre", Name: "Mystery"},
 		},
@@ -73,7 +82,7 @@ func TestScraperTraceContainers(t *testing.T) {
 	RunScraperTraceConformance(t, []ScraperTraceVector{{
 		Name:  "show container",
 		Spec:  containerTraceSpec(),
-		Input: TraceInput{ID: "42", LookupDoc: containerTraceDoc(t)},
+		Input: TraceInput{ID: "42", LookupDoc: containerTraceDoc(t), EntityDocs: containerTraceEntityDocs()},
 		Want: ScraperTrace{
 			Requests:   []TraceRequest{{Role: "lookup", Method: "GET", URL: "https://api.example.test/tv/42"}},
 			Containers: want,
