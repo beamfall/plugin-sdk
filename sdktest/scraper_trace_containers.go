@@ -2,6 +2,7 @@ package sdktest
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -188,7 +189,7 @@ func containerViolations(want, got []TraceContainer) []string {
 		}
 		violations = append(violations, mapViolations(prefix+" field", want[i].Fields, got[i].Fields)...)
 		violations = append(violations, mapViolations(prefix+" artwork", want[i].Artwork, got[i].Artwork)...)
-		if fmt.Sprint(want[i].Links) != fmt.Sprint(got[i].Links) {
+		if !slices.Equal(want[i].Links, got[i].Links) {
 			violations = append(violations, fmt.Sprintf("%s links: got %v, want %v", prefix, got[i].Links, want[i].Links))
 		}
 	}
