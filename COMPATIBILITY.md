@@ -1,13 +1,14 @@
 # Compatibility
 
-`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.4`,
-cut from `main`. It adds entity map relation attributes, element filters and
-sort offsets (CORE-2503) on top of the `v0.4.3` `Bundle.MediaSubtitle`, the
-`v0.4.1` per-item lookups and container entity maps and the `v0.4.0` catalog
-index schema v2 break, all described below. The
+`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.5`,
+cut from `main`. It adds container map artwork slots, display title and sibling
+relations (CORE-2514, CORE-2513) on top of the `v0.4.4` entity map relation
+attributes, element filters and sort offsets, the `v0.4.3`
+`Bundle.MediaSubtitle`, the `v0.4.1` per-item lookups and container entity maps
+and the `v0.4.0` catalog index schema v2 break, all described below. The
 previous line, `v0.3.x`, lives on the `release/v0.3` branch (last release
 `v0.3.7`). The compatibility matrix records the first-party plugins re-released
-against `v0.4.4` (CORE-2503).
+against `v0.4.5` (CORE-2514).
 
 `const Version` in `bundle.go` is the source of truth for the SDK artifact's
 exact identity. Released source MUST match the release tag it ships under, and
@@ -44,6 +45,19 @@ the next unused semver before it is tagged.
 - `CompatibleWithSDK` compares versions per SemVer §11 precedence: a pre-release
   (e.g. `0.1.6-rc1`) sorts **below** its release triple (`0.1.6`), so an rc does
   not satisfy a floor set to that release; build metadata (`+…`) is ignored.
+
+## v0.4.5: container map artwork, title and relations
+
+An additive, source-compatible patch (CORE-2514, CORE-2513). A `Container`
+`EntityMap` gains `ArtworkMap` (artwork slots such as `backdrop` and `logo`,
+composed like the scraper's Media `ArtworkMap`), `TitlePath` (the matched
+container's display title, so a show takes the provider's title over its folder
+name) and `ContainerRelations` (container relation → a sibling map's
+`Relation`, linking the container to the Entities those maps hydrate, such as
+its genres and cast). The three fields are rejected on non-container maps.
+`sdktest` scraper traces grade containers through `Want.Containers`, reading
+sibling maps' referenced documents from `TraceInput.EntityDocs`. `v0.4.5`
+re-records all eight first-party plugins at `[0.4.5, 0.4.5]`.
 
 ## v0.4.4: entity map relation attributes
 
