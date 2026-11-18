@@ -36,9 +36,10 @@ type traceEntity struct {
 // compileContainers resolves each Container EntityMap against the lookup
 // document. A map whose Path does not resolve (an ordinal {sequence} path has
 // no offline value) emits nothing. Sibling maps with a LookupTemplate are
-// traced offline: an element without a LookupIDPath value is skipped, at most
-// MaxLookups elements count, and NamePath resolves against the element's
-// referenced document in entityDocs.
+// traced offline: ElementFilter drops elements before any lookup; within
+// MaxLookups an element without a LookupIDPath value is skipped and NamePath
+// resolves against the element's referenced document in entityDocs; past the
+// cap NamePath resolves against the element itself.
 func compileContainers(spec sdk.ScraperSpec, doc map[string]any, entityDocs map[string]map[string]any) []TraceContainer {
 	if doc == nil {
 		return nil
@@ -146,13 +147,14 @@ func traceEntities(entityMap sdk.EntityMap, doc map[string]any, entityDocs map[s
 	lookups := 0
 	for _, element := range elements {
 		object, _ := element.(map[string]any)
-		if entityMap.LookupTemplate != "" {
+		if !elementMatchesFilter(object, entityMap.ElementFilter) {
+			continue
+		}
+		// Past MaxLookups the element itself is the source, as in the executor.
+		if entityMap.LookupTemplate != "" && (entityMap.MaxLookups <= 0 || lookups < entityMap.MaxLookups) {
 			id, ok := resolvePath(object, entityMap.LookupIDPath)
 			if !ok || strings.TrimSpace(id) == "" {
 				continue
-			}
-			if entityMap.MaxLookups > 0 && lookups >= entityMap.MaxLookups {
-				break
 			}
 			lookups++
 			referenced, found := entityDocs[strings.ReplaceAll(entityMap.LookupTemplate, "{id}", id)]
@@ -172,6 +174,19 @@ func traceEntities(entityMap sdk.EntityMap, doc map[string]any, entityDocs map[s
 		}
 	}
 	return entities
+}
+
+// elementMatchesFilter reports whether an element passes the map's
+// ElementFilter: every path, resolved against the element, must equal one of
+// its accepted values. An empty filter keeps every element.
+func elementMatchesFilter(element map[string]any, filter map[string][]string) bool {
+	for path, accepted := range filter {
+		value, ok := resolvePath(element, path)
+		if !ok || !slices.Contains(accepted, strings.TrimSpace(value)) {
+			return false
+		}
+	}
+	return true
 }
 
 func containerViolations(want, got []TraceContainer) []string {

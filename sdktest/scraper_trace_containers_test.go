@@ -22,6 +22,9 @@ func containerTraceSpec() sdk.ScraperSpec {
 			{Kind: "genre", Relation: "genre-of", Path: "genres", NamePath: "name"},
 			{Kind: "person", Relation: "credited-in", Path: "credits.cast", NamePath: "name",
 				LookupTemplate: "/person/{id}", LookupIDPath: "id", MaxLookups: 2},
+			{Kind: "person", Relation: "crew-of", Path: "credits.crew", NamePath: "name",
+				LookupTemplate: "/person/{id}", LookupIDPath: "id", MaxLookups: 1,
+				ElementFilter: map[string][]string{"job": {"Director"}}},
 			{
 				Kind: "show", Container: true, ArtworkPath: "poster_path",
 				ArtworkMap: map[string]string{"backdrop": "backdrop_path", "logo": "logo_path"},
@@ -32,7 +35,7 @@ func containerTraceSpec() sdk.ScraperSpec {
 					"community-rating":      "vote_average",
 					"tagline":               "tagline",
 				},
-				ContainerRelations: map[string]string{"in-genre": "genre-of", "credit": "credited-in"},
+				ContainerRelations: map[string]string{"in-genre": "genre-of", "credit": "credited-in", "directed": "crew-of"},
 			},
 			{Kind: "season", Container: true, Path: "seasons[season_number={sequence}]", ArtworkPath: "poster_path"},
 		},
@@ -46,20 +49,26 @@ func containerTraceDoc(t *testing.T) map[string]any {
 		"vote_average":8.1,"networks":[{"name":"Netflix"},{"name":"Other"}],
 		"content_ratings":{"results":[{"iso_3166_1":"GB","rating":"15"},{"iso_3166_1":"US","rating":"TV-MA"}]},
 		"genres":[{"name":"Drama"},{"name":"Mystery"}],
-		"credits":{"cast":[{"id":1,"name":"Lead"},{"name":"No ID"},{"id":2,"name":"Second"},{"id":3,"name":"Third"}]},
+		"credits":{"cast":[{"id":1,"name":"Lead"},{"name":"No ID"},{"id":2,"name":"Second"},{"id":3,"name":"Third"}],
+			"crew":[{"id":5,"name":"Grip","job":"Grip"},{"id":6,"name":"Dir","job":" Director "}]},
 		"seasons":[{"season_number":1,"poster_path":"/s1.jpg"}]}`), &doc); err != nil {
 		t.Fatal(err)
 	}
 	return doc
 }
 
-// containerTraceEntityDocs are the cast's referenced /person/{id} documents:
-// the name comes from the referenced document, not the cast element; person 2
-// has no document, so it hydrates nothing; person 3 is past MaxLookups.
+// containerTraceEntityDocs are the credits' referenced /person/{id}
+// documents: the name comes from the referenced document, not the element;
+// person 2 has no document, so it hydrates nothing; person 3 is past
+// MaxLookups, so it hydrates from the cast element. The crew filter drops the
+// grip (person 5) before it uses the crew map's single lookup, so the director
+// (person 6) is looked up.
 func containerTraceEntityDocs() map[string]map[string]any {
 	return map[string]map[string]any{
 		"/person/1": {"name": "Lead Actor"},
 		"/person/3": {"name": "Third Actor"},
+		"/person/5": {"name": "Grip Person"},
+		"/person/6": {"name": "Director Person"},
 	}
 }
 
@@ -75,6 +84,8 @@ func TestScraperTraceContainers(t *testing.T) {
 		Title:   "90 Day Fiancé",
 		Links: []TraceLink{
 			{Relation: "credit", Kind: "person", Name: "Lead Actor"},
+			{Relation: "credit", Kind: "person", Name: "Third"},
+			{Relation: "directed", Kind: "person", Name: "Director Person"},
 			{Relation: "in-genre", Kind: "genre", Name: "Drama"},
 			{Relation: "in-genre", Kind: "genre", Name: "Mystery"},
 		},

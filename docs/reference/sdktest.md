@@ -505,8 +505,9 @@ type TraceInput struct {
 	// EntityDocs supplies the referenced documents of EntityMaps that declare a
 	// LookupTemplate, keyed by that template with {id} replaced by the
 	// element's LookupIDPath value ("/person/101"). Such a map resolves
-	// NamePath against the referenced document, as the executor does; an
-	// element whose document is absent hydrates nothing.
+	// NamePath against the referenced document, as the executor does; within
+	// MaxLookups an element whose document is absent hydrates nothing, and past
+	// it the element itself is the source.
 	EntityDocs map[string]map[string]any
 }
 ```
