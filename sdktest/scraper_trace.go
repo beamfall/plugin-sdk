@@ -103,6 +103,10 @@ type ScraperTrace struct {
 	Artwork map[string]string
 	// Candidates is the emitted search-result elements, in document order.
 	Candidates []TraceCandidate
+	// Containers is the emitted Container EntityMap results, in EntityMaps
+	// order. It is graded only when the vector's Want sets it (non-nil), so
+	// vectors frozen before container traces existed keep passing.
+	Containers []TraceContainer
 }
 
 // ScraperTraceVector is one golden reference-trace case: a spec + input, and the
@@ -147,6 +151,7 @@ func CompileScraperTrace(spec sdk.ScraperSpec, input TraceInput) ScraperTrace {
 		Fields:     resolveFieldMap(spec.FieldMap, spec.Transforms, input.LookupDoc),
 		Artwork:    resolveArtworkMap(spec, spec.ArtworkMap, input.LookupDoc),
 		Candidates: compileCandidates(spec, input),
+		Containers: compileContainers(spec, input.LookupDoc),
 	}
 }
 
@@ -358,46 +363,30 @@ func fallbackMap(primary, secondary map[string]string) map[string]string {
 	return secondary
 }
 
-// resolvePath walks a dotted object path and stringifies the scalar leaf. A path
+// resolvePath walks a response path and stringifies the scalar leaf. A path
 // that hits a missing key, a non-object mid-segment, or a non-scalar leaf is
 // unresolved (ok=false) — the FieldMap "omit, never error" posture.
 func resolvePath(doc map[string]any, path string) (string, bool) {
 	if path == "" || doc == nil {
 		return "", false
 	}
-	var cur any = doc
-	for _, segment := range strings.Split(path, ".") {
-		object, ok := cur.(map[string]any)
-		if !ok {
-			return "", false
-		}
-		value, ok := object[segment]
-		if !ok {
-			return "", false
-		}
-		cur = value
+	node, ok := resolveNode(doc, path)
+	if !ok {
+		return "", false
 	}
-	return stringifyScalar(cur)
+	return stringifyScalar(node)
 }
 
-// resolveArray walks a dotted object path to an array of JSON objects.
+// resolveArray walks a response path to an array of JSON objects.
 func resolveArray(doc map[string]any, path string) ([]map[string]any, bool) {
 	if path == "" || doc == nil {
 		return nil, false
 	}
-	var cur any = doc
-	for _, segment := range strings.Split(path, ".") {
-		object, ok := cur.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		value, ok := object[segment]
-		if !ok {
-			return nil, false
-		}
-		cur = value
+	node, ok := resolveNode(doc, path)
+	if !ok {
+		return nil, false
 	}
-	raw, ok := cur.([]any)
+	raw, ok := node.([]any)
 	if !ok {
 		return nil, false
 	}
@@ -410,6 +399,98 @@ func resolveArray(doc map[string]any, path string) ([]map[string]any, bool) {
 		elements = append(elements, object)
 	}
 	return elements, true
+}
+
+// resolveNode walks the documented JSON path grammar: dot-separated segments,
+// each an object key or, on an array, a zero-based index (data.0.name); a key
+// may carry a predicate selecting the first array element whose keys match
+// every comma-separated condition (results[iso_3166_1=US].rating).
+func resolveNode(doc any, path string) (any, bool) {
+	cur := doc
+	for _, segment := range splitPath(path) {
+		switch node := cur.(type) {
+		case map[string]any:
+			key, conditions, predicate := pathPredicate(segment)
+			value, ok := node[key]
+			if !ok {
+				return nil, false
+			}
+			if predicate {
+				if value, ok = selectByPredicate(value, conditions); !ok {
+					return nil, false
+				}
+			}
+			cur = value
+		case []any:
+			index, err := strconv.Atoi(segment)
+			if err != nil || index < 0 || index >= len(node) {
+				return nil, false
+			}
+			cur = node[index]
+		default:
+			return nil, false
+		}
+	}
+	return cur, true
+}
+
+// splitPath splits on dots outside predicate brackets.
+func splitPath(path string) []string {
+	var segments []string
+	start, depth := 0, 0
+	for i, r := range path {
+		switch r {
+		case '[':
+			depth++
+		case ']':
+			depth--
+		case '.':
+			if depth == 0 {
+				segments = append(segments, path[start:i])
+				start = i + 1
+			}
+		}
+	}
+	return append(segments, path[start:])
+}
+
+func pathPredicate(segment string) (key string, conditions [][2]string, ok bool) {
+	key, predicate, found := strings.Cut(segment, "[")
+	if !found || key == "" || !strings.HasSuffix(predicate, "]") {
+		return segment, nil, false
+	}
+	for _, condition := range strings.Split(strings.TrimSuffix(predicate, "]"), ",") {
+		name, value, found := strings.Cut(condition, "=")
+		if !found || name == "" {
+			return segment, nil, false
+		}
+		conditions = append(conditions, [2]string{name, value})
+	}
+	return key, conditions, true
+}
+
+func selectByPredicate(node any, conditions [][2]string) (any, bool) {
+	elements, ok := node.([]any)
+	if !ok {
+		return nil, false
+	}
+	for _, element := range elements {
+		object, ok := element.(map[string]any)
+		if !ok {
+			continue
+		}
+		matched := true
+		for _, condition := range conditions {
+			if got, ok := stringifyScalar(object[condition[0]]); !ok || got != condition[1] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return element, true
+		}
+	}
+	return nil, false
 }
 
 // stringifyScalar renders a JSON scalar as its string value. An integral number
@@ -513,6 +594,9 @@ func scraperTraceViolations(want, got ScraperTrace) []string {
 	violations = append(violations, mapViolations("field", want.Fields, got.Fields)...)
 	violations = append(violations, mapViolations("artwork", want.Artwork, got.Artwork)...)
 	violations = append(violations, candidateViolations(want.Candidates, got.Candidates)...)
+	if want.Containers != nil {
+		violations = append(violations, containerViolations(want.Containers, got.Containers)...)
+	}
 	return violations
 }
 

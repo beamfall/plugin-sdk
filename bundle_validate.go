@@ -618,6 +618,9 @@ func ValidateBundle(bundle Bundle) error {
 			if !kinds[entityMap.Kind] {
 				return fmt.Errorf("plugin %s: scraper %q entity map targets undeclared kind %q", bundle.ID, scraper.ID, entityMap.Kind)
 			}
+			if err := validateContainerMapExtras(bundle, scraper, entityMap); err != nil {
+				return fmt.Errorf("plugin %s: scraper %q: %w", bundle.ID, scraper.ID, err)
+			}
 			if entityMap.Container {
 				if err := validateContainerEntityMap(entityMap, containerKinds); err != nil {
 					return fmt.Errorf("plugin %s: scraper %q: %w", bundle.ID, scraper.ID, err)
@@ -1579,8 +1582,60 @@ func validateContainerEntityMap(entityMap EntityMap, containerKinds map[string]b
 		return fmt.Errorf("container entity map for kind %q must not declare an ordinal field", entityMap.Kind)
 	case entityMap.NamePath != "":
 		return fmt.Errorf("container entity map for kind %q must not declare a name path", entityMap.Kind)
-	case strings.TrimSpace(entityMap.ArtworkPath) == "" && len(entityMap.FieldMap) == 0:
-		return fmt.Errorf("container entity map for kind %q declares neither an artwork path nor a field map", entityMap.Kind)
+	case strings.TrimSpace(entityMap.ArtworkPath) == "" && len(entityMap.FieldMap) == 0 && len(entityMap.ArtworkMap) == 0 && entityMap.TitlePath == "":
+		return fmt.Errorf("container entity map for kind %q declares no artwork, field map or title path", entityMap.Kind)
+	}
+	return nil
+}
+
+// validateContainerMapExtras checks the Container-only EntityMap fields:
+// ArtworkMap slots are core artwork slots with non-blank paths and do not
+// repeat ArtworkPath's poster; TitlePath is non-blank; each ContainerRelations
+// key is a relation Kind declares toward an Entity kind, and its value is the
+// Relation of a non-container map of that kind in the same scraper.
+func validateContainerMapExtras(bundle Bundle, scraper ScraperSpec, entityMap EntityMap) error {
+	if !entityMap.Container {
+		if len(entityMap.ArtworkMap) != 0 || entityMap.TitlePath != "" || len(entityMap.ContainerRelations) != 0 {
+			return fmt.Errorf("entity map for kind %q declares an artwork map, title path or container relations without being a container map", entityMap.Kind)
+		}
+		return nil
+	}
+	for _, slot := range slices.Sorted(maps.Keys(entityMap.ArtworkMap)) {
+		if !slices.Contains(ArtworkSlots(), slot) {
+			return fmt.Errorf("container entity map for kind %q maps unknown artwork slot %q", entityMap.Kind, slot)
+		}
+		if strings.TrimSpace(entityMap.ArtworkMap[slot]) == "" {
+			return fmt.Errorf("container entity map for kind %q artwork slot %q has a blank path", entityMap.Kind, slot)
+		}
+		if slot == "poster" && entityMap.ArtworkPath != "" {
+			return fmt.Errorf("container entity map for kind %q declares the poster by both artwork path and artwork map", entityMap.Kind)
+		}
+	}
+	if entityMap.TitlePath != "" && strings.TrimSpace(entityMap.TitlePath) == "" {
+		return fmt.Errorf("container entity map for kind %q has a blank title path", entityMap.Kind)
+	}
+	toKinds := map[string]string{}
+	for _, kind := range bundle.EntityKinds {
+		if kind.Name != entityMap.Kind {
+			continue
+		}
+		for _, relation := range kind.Relations {
+			if relation.ToKind != MediaKindName {
+				toKinds[relation.Name] = relation.ToKind
+			}
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(entityMap.ContainerRelations)) {
+		toKind, declared := toKinds[name]
+		if !declared {
+			return fmt.Errorf("container entity map for kind %q links relation %q that the kind does not declare toward an entity kind", entityMap.Kind, name)
+		}
+		sibling := entityMap.ContainerRelations[name]
+		if !slices.ContainsFunc(scraper.EntityMaps, func(other EntityMap) bool {
+			return !other.Container && other.Kind == toKind && other.Relation == sibling
+		}) {
+			return fmt.Errorf("container entity map for kind %q relation %q names %q, which no %q entity map in the scraper declares", entityMap.Kind, name, sibling, toKind)
+		}
 	}
 	return nil
 }
