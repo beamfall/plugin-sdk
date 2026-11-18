@@ -1,16 +1,16 @@
 ## 1. Build
 
-- [ ] 1.1 Add `EntityMap.RelationAttributeMap`, `ElementFilter` and `OrdinalOffset`, and let
+- [x] 1.1 Add `EntityMap.RelationAttributeMap`, `ElementFilter` and `OrdinalOffset`, and let
   `OrdinalField` name a relation attribute key
-- [ ] 1.2 Document the merge rule and the past-cap `MaxLookups` behavior
-- [ ] 1.3 Validate the new fields, including on container maps
-- [ ] 1.4 Regenerate docs with `script/gen-docs.sh`
+- [x] 1.2 Document the merge rule and the past-cap `MaxLookups` behavior
+- [x] 1.3 Validate the new fields, including on container maps
+- [x] 1.4 Regenerate docs with `script/gen-docs.sh`
 
 ## 2. Prove
 
-- [ ] 2.1 Validation vectors for valid and invalid relation attribute maps, filters and offsets
+- [x] 2.1 Validation vectors for valid and invalid relation attribute maps, filters and offsets
 - [ ] 2.2 plugin-filmtv and core compile against the change through a local go.work
-- [ ] 2.3 `openspec validate --all --strict` passes
+- [x] 2.3 `openspec validate --all --strict` passes
 
 ## 3. Release (owner approval)
 

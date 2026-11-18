@@ -1744,16 +1744,43 @@ type EntityMap struct {
 	// ParentRelation names the same-Kind relation (ToKind == Kind) the hydrated
 	// Entity links to its parent under. Required when ParentNamePath is set.
 	ParentRelation string
-	// OrdinalField names a FieldMap key whose resolved numeric value supplies
-	// the relation's sort position (relation.sort_order) — the ordering source
-	// that makes OrderedChildren and the next-up Source non-empty for an
-	// ordered container. The plugin declares which document value
+	// OrdinalField names a FieldMap or RelationAttributeMap key whose resolved
+	// numeric value supplies the relation's sort position (relation.sort_order)
+	// — the ordering source that makes OrderedChildren and the next-up Source
+	// non-empty for an ordered container, or a credit list's billing order.
+	// The plugin declares which document value
 	// is the ordinal (an installment or sequence number it carries); a missing
 	// or non-numeric value falls back to the document array index, the same
 	// FieldMap "omit, never error" posture. Generic by shape: the value is an
 	// integer position, never a domain label. Empty means order by array index
-	// only. Must name a key declared in FieldMap.
+	// only. Must name a key declared in FieldMap or RelationAttributeMap.
 	OrdinalField string
+	// OrdinalOffset is added to every relation sort position this map writes
+	// (the OrdinalField value or the array index), so several maps writing one
+	// relation can lay their rows out one after another: a second map at 1000
+	// sorts after the first map's rows below 1000. Must not be negative; zero
+	// leaves positions as they are. Rejected on a Container map.
+	OrdinalOffset int
+	// RelationAttributeMap declares the relation row's attribute values: an
+	// attribute the map's Relation declares (RelationSpec.Attributes) → a path
+	// resolved against the Path element itself, never a LookupTemplate
+	// document, because an attribute describes this link (a credit's character
+	// or job), not the referenced Entity. Unresolved or blank values are
+	// omitted, never errors. When one identification links an Entity to the
+	// Media under one relation more than once (one person credited for two
+	// jobs, or by two maps), the host writes one row: its attributes merge,
+	// distinct values of one attribute joining in map declaration order, then
+	// element order, with ", ", and its sort position is the smallest of the
+	// links'. Empty means rows without attributes. Rejected on a Container map.
+	RelationAttributeMap map[string]string
+	// ElementFilter keeps only the Path elements whose element-relative paths
+	// resolve to accepted values: path → accepted values, and every entry must
+	// match (a key=value test like a predicate, but keeping every match rather
+	// than the first). A filtered-out element hydrates nothing and consumes no
+	// MaxLookups; kept elements keep their array index as sort position. Paths
+	// resolve against the Path element, never a LookupTemplate document. Empty
+	// means every element hydrates. Rejected on a Container map.
+	ElementFilter map[string][]string
 	// LookupTemplate optionally fetches a referenced JSON document per EntityMap
 	// element before resolving NamePath/ArtworkPath/FieldMap/ParentNamePath,
 	// up to MaxLookups. LookupIDPath resolves the per-element ID fed into {id};
@@ -1763,7 +1790,10 @@ type EntityMap struct {
 	LookupIDPath   string
 	// MaxLookups caps secondary LookupTemplate fetches for this EntityMap. It
 	// must be positive when LookupTemplate is set; zero means no secondary
-	// lookup is declared.
+	// lookup is declared. Elements past the cap still hydrate, from the element
+	// itself as if the map declared no LookupTemplate; an Entity hydrated with
+	// no resolved FieldMap value keeps the typed fields an earlier
+	// identification wrote.
 	MaxLookups int
 	// ArtworkURLTemplate renders this EntityMap's ArtworkPath scalar into an
 	// absolute HTTPS URL. Empty uses the scraper's ArtworkBaseURL composition.

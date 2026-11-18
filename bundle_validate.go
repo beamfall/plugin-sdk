@@ -313,6 +313,9 @@ func ValidateBundle(bundle Bundle) error {
 	}
 
 	mediaRelations := map[string]bool{}
+	// relationAttributes holds each Media-targeted relation's plain declared
+	// attributes, the ones an EntityMap's RelationAttributeMap may write.
+	relationAttributes := map[string]map[string]bool{}
 	selfRelations := map[string]bool{}
 	hierarchical := map[string]bool{}
 	for _, kind := range bundle.EntityKinds {
@@ -349,6 +352,11 @@ func ValidateBundle(bundle Bundle) error {
 			}
 			if relation.ToKind == MediaKindName {
 				mediaRelations[kind.Name+"\x00"+relation.Name] = true
+				plain := map[string]bool{}
+				for _, attribute := range relation.Attributes {
+					plain[attribute] = true
+				}
+				relationAttributes[kind.Name+"\x00"+relation.Name] = plain
 				continue
 			}
 			if !kinds[relation.ToKind] {
@@ -677,10 +685,8 @@ func ValidateBundle(bundle Bundle) error {
 			} else if entityMap.ParentRelation != "" {
 				return fmt.Errorf("plugin %s: scraper %q entity map for kind %q declares a parent relation without a parent name path", bundle.ID, scraper.ID, entityMap.Kind)
 			}
-			if entityMap.OrdinalField != "" {
-				if _, mapped := entityMap.FieldMap[entityMap.OrdinalField]; !mapped {
-					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q declares ordinal field %q that is not in its field map", bundle.ID, scraper.ID, entityMap.Kind, entityMap.OrdinalField)
-				}
+			if err := validateEntityMapRelationValues(entityMap, relationAttributes[entityMap.Kind+"\x00"+entityMap.Relation]); err != nil {
+				return fmt.Errorf("plugin %s: scraper %q: %w", bundle.ID, scraper.ID, err)
 			}
 		}
 		if scraper.ArtworkBaseURL != "" && !strings.HasPrefix(scraper.ArtworkBaseURL, "https://") {
@@ -1562,6 +1568,42 @@ func validateItemLookup(scraper ScraperSpec, mediaFields map[string]string) erro
 	return nil
 }
 
+// validateEntityMapRelationValues checks the values an EntityMap writes on its
+// relation row and the elements it keeps: RelationAttributeMap keys are plain
+// attributes the relation declares, with non-blank paths; ElementFilter
+// paths are non-blank with at least one accepted value; OrdinalField names a
+// FieldMap or RelationAttributeMap key; OrdinalOffset is not negative.
+// declared is nil for a Container map, which names no relation.
+func validateEntityMapRelationValues(entityMap EntityMap, declared map[string]bool) error {
+	for _, attribute := range slices.Sorted(maps.Keys(entityMap.RelationAttributeMap)) {
+		if !declared[attribute] {
+			return fmt.Errorf("entity map for kind %q maps relation attribute %q that relation %q does not declare", entityMap.Kind, attribute, entityMap.Relation)
+		}
+		if strings.TrimSpace(entityMap.RelationAttributeMap[attribute]) == "" {
+			return fmt.Errorf("entity map for kind %q relation attribute %q has a blank path", entityMap.Kind, attribute)
+		}
+	}
+	for _, path := range slices.Sorted(maps.Keys(entityMap.ElementFilter)) {
+		if strings.TrimSpace(path) == "" {
+			return fmt.Errorf("entity map for kind %q has a blank element filter path", entityMap.Kind)
+		}
+		if len(entityMap.ElementFilter[path]) == 0 {
+			return fmt.Errorf("entity map for kind %q element filter %q accepts no values", entityMap.Kind, path)
+		}
+	}
+	if entityMap.OrdinalField != "" {
+		_, field := entityMap.FieldMap[entityMap.OrdinalField]
+		_, attribute := entityMap.RelationAttributeMap[entityMap.OrdinalField]
+		if !field && !attribute {
+			return fmt.Errorf("entity map for kind %q declares ordinal field %q that is not in its field map or relation attribute map", entityMap.Kind, entityMap.OrdinalField)
+		}
+	}
+	if entityMap.OrdinalOffset < 0 {
+		return fmt.Errorf("entity map for kind %q ordinal offset must not be negative", entityMap.Kind)
+	}
+	return nil
+}
+
 // validateContainerEntityMap checks a Container entity map: it hydrates an
 // existing container Entity, so it names no relation, creates no parent and
 // fetches no secondary documents, and it must hydrate something.
@@ -1575,8 +1617,12 @@ func validateContainerEntityMap(entityMap EntityMap, containerKinds map[string]b
 		return fmt.Errorf("container entity map for kind %q must not declare a reference lookup", entityMap.Kind)
 	case entityMap.ParentNamePath != "" || entityMap.ParentRelation != "":
 		return fmt.Errorf("container entity map for kind %q must not declare a parent", entityMap.Kind)
-	case entityMap.OrdinalField != "":
-		return fmt.Errorf("container entity map for kind %q must not declare an ordinal field", entityMap.Kind)
+	case entityMap.OrdinalField != "" || entityMap.OrdinalOffset != 0:
+		return fmt.Errorf("container entity map for kind %q must not declare an ordinal field or offset", entityMap.Kind)
+	case len(entityMap.RelationAttributeMap) != 0:
+		return fmt.Errorf("container entity map for kind %q must not declare relation attributes", entityMap.Kind)
+	case len(entityMap.ElementFilter) != 0:
+		return fmt.Errorf("container entity map for kind %q must not declare an element filter", entityMap.Kind)
 	case entityMap.NamePath != "":
 		return fmt.Errorf("container entity map for kind %q must not declare a name path", entityMap.Kind)
 	case strings.TrimSpace(entityMap.ArtworkPath) == "" && len(entityMap.FieldMap) == 0:
