@@ -8,7 +8,7 @@
 ## 2. Prove
 
 - [x] 2.1 Unit tests for valid and invalid container artwork, title and relation maps
-- [ ] 2.2 Core and filmtv compile against the change
+- [x] 2.2 Core and filmtv compile against the change
 - [x] 2.3 `openspec validate --all --strict` passes
 
 ## 3. Release (owner approval)
