@@ -1,12 +1,13 @@
 # Compatibility
 
-`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.3`,
-cut from `main`. It adds `Bundle.MediaSubtitle` (CORE-1226) on top of the
+`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.4`,
+cut from `main`. It adds entity map relation attributes, element filters and
+sort offsets (CORE-2503) on top of the `v0.4.3` `Bundle.MediaSubtitle`, the
 `v0.4.1` per-item lookups and container entity maps and the `v0.4.0` catalog
 index schema v2 break, all described below. The
 previous line, `v0.3.x`, lives on the `release/v0.3` branch (last release
 `v0.3.7`). The compatibility matrix records the first-party plugins re-released
-against `v0.4.3` (CORE-1226).
+against `v0.4.4` (CORE-2503).
 
 `const Version` in `bundle.go` is the source of truth for the SDK artifact's
 exact identity. Released source MUST match the release tag it ships under, and
@@ -43,6 +44,17 @@ the next unused semver before it is tagged.
 - `CompatibleWithSDK` compares versions per SemVer §11 precedence: a pre-release
   (e.g. `0.1.6-rc1`) sorts **below** its release triple (`0.1.6`), so an rc does
   not satisfy a floor set to that release; build metadata (`+…`) is ignored.
+
+## v0.4.4: entity map relation attributes
+
+An additive, source-compatible patch (CORE-2503, CORE-2432). `EntityMap` gains
+`RelationAttributeMap` (relation attributes such as a credit's `character`,
+`job`, `department` and `billing`, read from the mapped element),
+`ElementFilter` (hydrate only matching array elements) and `OrdinalOffset`
+(lay out rows of maps sharing a relation one after another); `OrdinalField`
+may name a relation attribute, and elements past `MaxLookups` still hydrate
+from the element itself. `v0.4.4` re-records all eight first-party plugins at
+`[0.4.4, 0.4.4]`.
 
 ## v0.4.3: Bundle.MediaSubtitle
 
