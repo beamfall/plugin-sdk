@@ -94,9 +94,25 @@ when a vector's `Want.Containers` is set, so vectors frozen before this change k
 
 For a sibling map with a `LookupTemplate`, `sdktest.CompileScraperTrace` SHALL resolve each element's
 name against the referenced document the vector supplies in `TraceInput.EntityDocs`, keyed by the template
-with `{id}` replaced, honouring `MaxLookups`. An element without a supplied document SHALL hydrate nothing.
+with `{id}` replaced. Within `MaxLookups`, an element without a supplied document SHALL hydrate nothing.
 
 #### Scenario: Cast names from person documents
 
 - **WHEN** a cast element `{"id":1,"name":"Lead"}` has the referenced document `/person/1` named "Lead Actor"
 - **THEN** the container's credit link names "Lead Actor"
+
+### Requirement: Scraper reference traces follow element filters and the lookup cap
+
+`sdktest.CompileScraperTrace` SHALL apply a sibling map's `ElementFilter` and `MaxLookups` as the executor
+does: a filtered-out element hydrates nothing and consumes no lookup, and an element past the cap
+hydrates from the element itself.
+
+#### Scenario: Cast past the lookup cap
+
+- **WHEN** a cast map with `MaxLookups` 2 has already looked up two elements and a third element is `{"id":3,"name":"Third"}`
+- **THEN** the container's credit link for that element names "Third"
+
+#### Scenario: Filtered crew
+
+- **WHEN** a crew map with `ElementFilter` `{"job":["Director"]}` and `MaxLookups` 1 lists a grip before the director
+- **THEN** the grip links nothing and the director's name comes from its referenced document
