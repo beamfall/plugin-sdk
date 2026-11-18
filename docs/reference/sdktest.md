@@ -424,6 +424,10 @@ type ScraperTrace struct {
 	Artwork map[string]string
 	// Candidates is the emitted search-result elements, in document order.
 	Candidates []TraceCandidate
+	// Containers is the emitted Container EntityMap results, in EntityMaps
+	// order. It is graded only when the vector's Want sets it (non-nil), so
+	// vectors frozen before container traces existed keep passing.
+	Containers []TraceContainer
 }
 ```
 
@@ -464,6 +468,20 @@ type TraceCandidate struct {
 
 TraceCandidate is one search-result element's emitted values, resolved through SearchFieldMap/SearchArtworkMap (falling back to FieldMap/ArtworkMap).
 
+## type TraceContainer
+
+```go
+type TraceContainer struct {
+	Kind    string
+	Fields  map[string]string
+	Artwork map[string]string
+	Title   string
+	Links   []TraceLink
+}
+```
+
+TraceContainer is one Container EntityMap's emitted result against the lookup document: the fields, artwork slots (ArtworkPath as "poster" plus ArtworkMap), display title and the links its ContainerRelations resolve to.
+
 ## type TraceInput
 
 ```go
@@ -488,6 +506,18 @@ type TraceInput struct {
 ```
 
 TraceInput is the offline stimulus a reference trace is compiled against: the search/lookup identifiers to substitute and the decoded JSON documents the mappings resolve against. No field triggers a network call.
+
+## type TraceLink
+
+```go
+type TraceLink struct {
+	Relation string
+	Kind     string
+	Name     string
+}
+```
+
+TraceLink is one container → sibling-hydrated Entity link: the container relation and the linked Entity's kind and name.
 
 ## type TraceRequest
 

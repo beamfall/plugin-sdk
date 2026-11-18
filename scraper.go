@@ -346,13 +346,15 @@ type EntityMap struct {
 	// that holds the looked-up Media — directly, or further up its chain of
 	// container Entities — instead of creating and linking a new Entity. The
 	// host built that Entity (from the folder layout or a local mapper); the
-	// map only adds the ArtworkPath image and FieldMap values it resolves,
-	// keeping the Entity's name and its other fields. No Entity of Kind
+	// map only adds the ArtworkPath/ArtworkMap images, FieldMap values and
+	// TitlePath display title it resolves, plus its ContainerRelations links,
+	// keeping the Entity's identity and its other fields. No Entity of Kind
 	// holding the Media means nothing is hydrated. Kind must be a
 	// "container" archetype; Relation must be empty; NamePath, LookupTemplate,
 	// ParentNamePath, ParentRelation and OrdinalField are rejected; at least
-	// one of ArtworkPath or FieldMap is required. Path may be empty (the
-	// lookup document root) and should resolve to a single object.
+	// one of ArtworkPath, ArtworkMap, FieldMap or TitlePath is required. Path
+	// may be empty (the lookup document root) and should resolve to a single
+	// object.
 	Container bool
 	// Path is the lookup-document response path of the value(s): a scalar
 	// yields one Entity, an array yields one per element. Unresolved paths
@@ -443,6 +445,24 @@ type EntityMap struct {
 	// ArtworkURLTemplate renders this EntityMap's ArtworkPath scalar into an
 	// absolute HTTPS URL. Empty uses the scraper's ArtworkBaseURL composition.
 	ArtworkURLTemplate string
+	// ArtworkMap (Container maps only) declares more container artwork:
+	// artwork slot (one of ArtworkSlots) → container-node-relative path. Each
+	// value composes like the scraper's Media ArtworkMap: the slot's
+	// ArtworkURLTemplates entry, else ArtworkBaseURL. "poster" must not be
+	// declared both here and by ArtworkPath. Unresolved paths are omitted.
+	ArtworkMap map[string]string
+	// TitlePath (Container maps only) resolves, against the container node,
+	// the container Entity's display title. A non-blank value replaces the
+	// title; the Entity's identity is unchanged and the host-built name (the
+	// folder spelling) stays the fallback when the path does not resolve.
+	TitlePath string
+	// ContainerRelations (Container maps only) links the container Entity to
+	// Entities sibling maps hydrate: relation declared on Kind whose ToKind is
+	// an Entity kind → the Relation of a non-container entity map of that
+	// ToKind in the same scraper. The host links the container Entity to every
+	// Entity that sibling map hydrated in the same identification, under the
+	// container relation, keeping the sibling's sort order.
+	ContainerRelations map[string]string
 }
 
 // Attribution is a data source's required credit as pure data: the text
