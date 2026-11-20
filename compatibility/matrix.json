@@ -50,6 +50,16 @@
     "conformanceTest": "beamfall-plugin-karaoke/conformance_test.go"
   },
   {
+    "consumerID": "livetv",
+    "consumerVersion": "0.0.1",
+    "consumerRevision": "ed359bb255662d380e0f3c58999a6995f94b3112",
+    "consumerDigest": "sha256:64ec45e1db4832d69db6a9314351289e7bae28d93e7c49386af0c79cb0bc4008",
+    "sdkVersion": "0.4.5",
+    "sdkFloor": "0.4.5",
+    "sdkCeiling": "0.4.5",
+    "conformanceTest": "beamfall-plugin-livetv/conformance_test.go"
+  },
+  {
     "consumerID": "music",
     "consumerVersion": "0.1.5",
     "consumerRevision": "cffda13807a303b6b0994fbe9fa2680407a698af",
@@ -78,5 +88,15 @@
     "sdkFloor": "0.4.5",
     "sdkCeiling": "0.4.5",
     "conformanceTest": "beamfall-plugin-podcasts/conformance_test.go"
+  },
+  {
+    "consumerID": "requests",
+    "consumerVersion": "0.0.1",
+    "consumerRevision": "597a3a1a72af490187b7edb96cce085274be892f",
+    "consumerDigest": "sha256:e777099e4e0b9eeb3c958bc86bc004ccea5551c3e7f0b5a728ba1544ecd6fd50",
+    "sdkVersion": "0.4.5",
+    "sdkFloor": "0.4.5",
+    "sdkCeiling": "0.4.5",
+    "conformanceTest": "beamfall-plugin-requests/conformance_test.go"
   }
 ]
