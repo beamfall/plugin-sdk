@@ -884,6 +884,18 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 		t.Fatalf("ValidateBundle rejected valid search hint placeholders: %v", err)
 	}
 
+	for _, template := range []string{
+		`/search?filter={"title":"{query}"}`,
+		`/search?filter={"outer":{"title":"{query}","qualifier":"{hint.key}"}}`,
+		`/search?filter={"year":{year}}`,
+	} {
+		t.Run(template, func(t *testing.T) {
+			if err := ValidateBundle(newBundle(template)); err != nil {
+				t.Fatalf("ValidateBundle rejected a search template with a literal JSON filter: %v", err)
+			}
+		})
+	}
+
 	t.Run("GraphQL", func(t *testing.T) {
 		graphql := newBundle(`query{titles(filter:"{query}"){ id }}`)
 		graphql.Scrapers[0].Kind = "http-graphql"
@@ -912,7 +924,8 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 	}
 
 	for _, template := range []string{
-		"/search?v={{hint._1}}", "/search?v={{hint._1}", "/search?v={hint._1}}",
+		"/search?v={{hint.key}}", "/search?v={{hint._1}", "/search?v={hint._1}}",
+		`/search?filter={"title":"{query}"}&v={{hint.key}}`,
 		"/search?v={{query}}", "/search?v={query", "/search?v=query}",
 	} {
 		t.Run(template, func(t *testing.T) {
@@ -953,7 +966,7 @@ func TestValidateBundleEntityMapLookupPlaceholders(t *testing.T) {
 	b := scraperBundle()
 	b.Scrapers[0].EntityMaps = []EntityMap{{
 		Kind: "genre", Relation: "genres", Path: "genres",
-		LookupTemplate: "/genre/{id}", LookupIDPath: "id", MaxLookups: 3,
+		LookupTemplate: `/genre/{id}?filter={"title":"{id}"}`, LookupIDPath: "id", MaxLookups: 3,
 	}}
 	if err := ValidateBundle(b); err != nil {
 		t.Fatalf("ValidateBundle rejected a valid entity map lookup: %v", err)

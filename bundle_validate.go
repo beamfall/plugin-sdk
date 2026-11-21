@@ -22,7 +22,9 @@ var (
 	localeTagPattern         = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,8})*$`)
 	configPlaceholderPattern = regexp.MustCompile(`\{config\.([^{}]*)\}`)
 	hintPlaceholderStart     = regexp.MustCompile(`(?i:\{hint\.)`)
-	urlTemplateBracesPattern = regexp.MustCompile(`^[^{}]*(\{[^{}]*\}[^{}]*)*$`)
+	urlTemplateBraceToken    = regexp.MustCompile(`\{[[:alnum:]_.-]+\}|[{}]`)
+	// A known variable standing alone in a URL component may have lost one delimiter.
+	urlTemplateHalfPlaceholder = regexp.MustCompile(`(?:^|[=/])(?:\{(?:` + urlTemplateVariable + `)|(?:` + urlTemplateVariable + `)\})(?:$|[&#/])`)
 	// referencePlaceholderPattern matches a {ref.<name>:<path>} map-path
 	// placeholder reading a declared ReferenceDocument.
 	referencePlaceholderPattern = regexp.MustCompile(`\{ref\.([^{}:]*):[^{}]*\}`)
@@ -30,6 +32,8 @@ var (
 	// extension with no dot (bundle.go doc).
 	sidecarExtPattern = regexp.MustCompile(`^[a-z0-9]+$`)
 )
+
+const urlTemplateVariable = `id|query|page|year|phash|oshash|duration|sequence|index|(?:config|hint)\.[[:alnum:]_.-]+`
 
 // ValidateBundle checks a Bundle against the fixed SDK vocabularies and the
 // declarative authoring invariants Core enforces before activating a plugin.
@@ -674,7 +678,7 @@ func ValidateBundle(bundle Bundle) error {
 				if hintPlaceholderStart.MatchString(entityMap.LookupTemplate) {
 					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q reference lookup template uses a hint placeholder outside SearchTemplate", bundle.ID, scraper.ID, entityMap.Kind)
 				}
-				if !urlTemplateBracesPattern.MatchString(entityMap.LookupTemplate) {
+				if malformedURLPlaceholderDelimiters(entityMap.LookupTemplate) {
 					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q reference lookup template has unmatched or nested placeholder braces", bundle.ID, scraper.ID, entityMap.Kind)
 				}
 			} else if entityMap.MaxLookups < 0 {
@@ -1328,7 +1332,7 @@ func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, confi
 			}
 			searchHints[key] = true
 		}
-		if scraper.Kind != "http-graphql" && !urlTemplateBracesPattern.MatchString(template.value) {
+		if scraper.Kind != "http-graphql" && malformedURLPlaceholderDelimiters(template.value) {
 			return fmt.Errorf("plugin %s: scraper %q %s template has unmatched or nested placeholder braces", pluginID, scraper.ID, template.name)
 		}
 	}
@@ -1344,6 +1348,32 @@ func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, confi
 		}
 	}
 	return nil
+}
+
+func malformedURLPlaceholderDelimiters(template string) bool {
+	if urlTemplateHalfPlaceholder.MatchString(template) {
+		return true
+	}
+	// Literal braces can enclose a placeholder in a structured query value.
+	// Track them so a literal closing brace can immediately follow a substitution.
+	literalDepth := 0
+	for _, token := range urlTemplateBraceToken.FindAllStringIndex(template, -1) {
+		start, end := token[0], token[1]
+		switch template[start:end] {
+		case "{":
+			literalDepth++
+		case "}":
+			literalDepth = max(0, literalDepth-1)
+		default:
+			if start > 0 && template[start-1] == '{' {
+				return true
+			}
+			if literalDepth == 0 && end < len(template) && template[end] == '}' {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // validateImpliedMediaFields enforces the ImpliedMediaFields contract for one
