@@ -22,8 +22,9 @@ var (
 	localeTagPattern         = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,8})*$`)
 	configPlaceholderPattern = regexp.MustCompile(`\{config\.([^{}]*)\}`)
 	hintPlaceholderPattern   = regexp.MustCompile(`\{hint\.([^{}]*)\}`)
-	// Preserve rejection of mixed-case placeholder prefixes such as {Hint.key}.
-	hintPlaceholderMarker = regexp.MustCompile(`hint\.|(?i:\{hint\.)`)
+	// A malformed hint can have just one brace. With only a closing brace,
+	// look for a hint token at the start of a URL component or query term.
+	hintPlaceholderMarker = regexp.MustCompile(`(?i:\{hint\.|(?:^|[?&=/+])hint\.[[:alnum:]_.-]*\})`)
 	// referencePlaceholderPattern matches a {ref.<name>:<path>} map-path
 	// placeholder reading a declared ReferenceDocument.
 	referencePlaceholderPattern = regexp.MustCompile(`\{ref\.([^{}:]*):[^{}]*\}`)
@@ -1318,25 +1319,25 @@ func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, confi
 		}
 		beforeFragment, _, _ := strings.Cut(template.value, "#")
 		queryStart := strings.IndexByte(beforeFragment, '?')
-		var remainder strings.Builder
-		lastEnd := 0
+		uncheckedStart := 0
 		for _, match := range hintPlaceholderPattern.FindAllStringSubmatchIndex(template.value, -1) {
 			start, end := match[0], match[1]
 			key := template.value[match[2]:match[3]]
-			if !ValidHintKey(key) ||
+			if hintPlaceholderMarker.MatchString(template.value[uncheckedStart:start]) ||
+				!ValidHintKey(key) ||
 				(start > 0 && template.value[start-1] == '{') ||
 				(end < len(template.value) && template.value[end] == '}') {
-				continue
+				break
 			}
 			if scraper.Kind == "http-graphql" || queryStart < 0 || start <= queryStart || start >= len(beforeFragment) {
 				return fmt.Errorf("plugin %s: scraper %q SearchTemplate hint placeholders require a URL query", pluginID, scraper.ID)
 			}
 			searchHints[key] = true
-			remainder.WriteString(template.value[lastEnd:start])
-			lastEnd = end
+			// Keep the closing brace as context so the next span does not
+			// make adjacent literal text look like the start of a URL component.
+			uncheckedStart = end - 1
 		}
-		remainder.WriteString(template.value[lastEnd:])
-		if hintPlaceholderMarker.MatchString(remainder.String()) {
+		if hintPlaceholderMarker.MatchString(template.value[uncheckedStart:]) {
 			return fmt.Errorf("plugin %s: scraper %q SearchTemplate has a malformed hint placeholder (want {hint.<key>} with a valid hint key)", pluginID, scraper.ID)
 		}
 	}

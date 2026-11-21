@@ -25,10 +25,16 @@ tags and validate the resulting parse hints before using them.
 ### Requirement: Scraper search templates may interpolate named hints
 
 `SearchTemplate` SHALL accept `{hint.<key>}` for valid hint keys unless the placeholder is immediately
-preceded by `{` or followed by `}`. After removing valid placeholders, the bundle validator SHALL
-reject any remaining `hint.` as malformed. The host SHALL URL-query-escape each substituted value.
+preceded by `{` or followed by `}`. The SDK SHALL reject malformed hint placeholders and accept
+literal `hint.` URL text. The host SHALL URL-query-escape each substituted value.
 A missing or empty value SHALL render as an empty string. Each `RequiredSearchHints` key SHALL be
 referenced by the search template, appear once, and count toward the 16-hint limit.
+
+#### Scenario: A hint placeholder is malformed
+
+- **WHEN** the template contains an invalid placeholder beginning with `{hint.` (any case), or a
+  hint token at the start of a URL component or query term with only a closing brace
+- **THEN** bundle validation returns an error
 
 #### Scenario: A required hint is unavailable
 

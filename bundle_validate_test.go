@@ -892,6 +892,8 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 		{`/search?filter={"suffix":"}","year":{year}}`, false},
 		{`/search?filter={"outer":{"title":"{query}","qualifier":"{hint.key}"}}`, false},
 		{"/search?q={query}&h={hint.key}", false},
+		{"/hint.json?q={query}", false},
+		{"/hint.json?q={query}&h={hint.key}&source=hint.service", false},
 		{"/search?v={{query}}", false},
 		{"/search?v={query", false},
 		{"/search?v=query}", false},
@@ -904,7 +906,8 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 		{"/search?v={hint._1}}", true},
 		{`/search?filter={"title":"{query}"}&v={{hint.key}}`, true},
 		{"/search?v={hint.key}+hint.other}", true},
-		{"/search?v=hi{hint.key}nt.other}", true},
+		{"/search?v=hi{hint.key}nt.other}", false},
+		{"/search?v={hint.key}hint.other}", false},
 		{"/search?v={hint.Upper}", true},
 		{"/search?v={Hint.key}", true},
 		{"/search?v={hint.bad-key}", true},
@@ -965,6 +968,10 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 	wantBundleError(t, local, "required search hints need a search template")
 
 	lookup := scraperBundle()
+	lookup.Scrapers[0].LookupTemplate = "/hint.json?id={id}"
+	if err := ValidateBundle(lookup); err != nil {
+		t.Fatalf("ValidateBundle rejected a literal hint in a lookup URL: %v", err)
+	}
 	lookup.Scrapers[0].LookupTemplate = "/lookup/{id}?v={hint._1}"
 	wantBundleError(t, lookup, "hint placeholder outside SearchTemplate")
 }
@@ -973,7 +980,7 @@ func TestValidateBundleEntityMapLookupPlaceholders(t *testing.T) {
 	b := scraperBundle()
 	b.Scrapers[0].EntityMaps = []EntityMap{{
 		Kind: "genre", Relation: "genres", Path: "genres",
-		LookupTemplate: `/genre/{id}?filter={"title":"{id}"}`, LookupIDPath: "id", MaxLookups: 3,
+		LookupTemplate: `/hint.json/{id}?filter={"title":"{id}"}`, LookupIDPath: "id", MaxLookups: 3,
 	}}
 	if err := ValidateBundle(b); err != nil {
 		t.Fatalf("ValidateBundle rejected a valid entity map lookup: %v", err)
