@@ -797,6 +797,9 @@ func ValidateBundle(bundle Bundle) error {
 	if len(bundle.FamilyScopes) > 0 && scopeDefaults != 1 {
 		return fmt.Errorf("plugin %s: a plugin declaring family scopes marks exactly one default, got %d", bundle.ID, scopeDefaults)
 	}
+	if err := validateInterop(bundle, mediaFields, containerKinds, scopeValues); err != nil {
+		return err
+	}
 
 	eventKinds := map[string]bool{}
 	for _, kind := range bundle.Engagement.EventKinds {
@@ -941,6 +944,87 @@ func validateScrobbleTarget(bundle Bundle, mediaFields map[string]string) error 
 		seen[mapping.Value] = true
 		if !mapping.Hint.Known() {
 			return fmt.Errorf("plugin %s: scrobble target mapping value %q uses unknown hint %q", bundle.ID, mapping.Value, mapping.Hint)
+		}
+	}
+	return nil
+}
+
+var interopTypePattern = regexp.MustCompile(`^[A-Za-z]{1,32}$`)
+
+// validateInterop enforces the InteropSpec contract: Media values come from one
+// declared text Media field, Kinds name this bundle's container kinds, Scopes
+// name its declared family scopes, every token matches interopTypePattern, and
+// an item type identifies either Media or exactly one kind, never both.
+func validateInterop(bundle Bundle, mediaFields map[string]string, containerKinds, scopes map[string]bool) error {
+	spec := bundle.Interop
+	if spec == nil {
+		return nil
+	}
+	if len(spec.Media) == 0 && len(spec.Kinds) == 0 && len(spec.Scopes) == 0 {
+		return fmt.Errorf("plugin %s: interop declares no mappings", bundle.ID)
+	}
+	if (spec.MediaField == "") != (len(spec.Media) == 0) {
+		return fmt.Errorf("plugin %s: interop media field and media mappings must be declared together", bundle.ID)
+	}
+	if spec.MediaField != "" {
+		fieldType, declared := mediaFields[spec.MediaField]
+		if !declared {
+			return fmt.Errorf("plugin %s: interop media field %q is not declared", bundle.ID, spec.MediaField)
+		}
+		if fieldType != "text" {
+			return fmt.Errorf("plugin %s: interop media field %q has type %q, want text", bundle.ID, spec.MediaField, fieldType)
+		}
+	}
+	mediaTypes := map[string]bool{}
+	if err := validateInteropMappings(bundle.ID, "media", spec.Media, func(m InteropMapping) error {
+		mediaTypes[m.Type] = true
+		return nil
+	}); err != nil {
+		return err
+	}
+	kindTypes := map[string]string{}
+	if err := validateInteropMappings(bundle.ID, "kind", spec.Kinds, func(m InteropMapping) error {
+		isContainer, declared := containerKinds[m.Value]
+		if !declared {
+			return fmt.Errorf("plugin %s: interop kind %q is not a declared entity kind", bundle.ID, m.Value)
+		}
+		if !isContainer {
+			return fmt.Errorf("plugin %s: interop kind %q is not a container kind", bundle.ID, m.Value)
+		}
+		if other, dup := kindTypes[m.Type]; dup {
+			return fmt.Errorf("plugin %s: interop kinds %q and %q share item type %q", bundle.ID, other, m.Value, m.Type)
+		}
+		if mediaTypes[m.Type] {
+			return fmt.Errorf("plugin %s: interop item type %q names both media and kind %q", bundle.ID, m.Type, m.Value)
+		}
+		kindTypes[m.Type] = m.Value
+		return nil
+	}); err != nil {
+		return err
+	}
+	return validateInteropMappings(bundle.ID, "scope", spec.Scopes, func(m InteropMapping) error {
+		if !scopes[m.Value] {
+			return fmt.Errorf("plugin %s: interop scope %q is not a declared family scope", bundle.ID, m.Value)
+		}
+		return nil
+	})
+}
+
+func validateInteropMappings(id ID, label string, mappings []InteropMapping, check func(InteropMapping) error) error {
+	seen := map[string]bool{}
+	for _, m := range mappings {
+		if strings.TrimSpace(m.Value) == "" {
+			return fmt.Errorf("plugin %s: interop %s values must be non-blank", id, label)
+		}
+		if seen[m.Value] {
+			return fmt.Errorf("plugin %s: duplicate interop %s value %q", id, label, m.Value)
+		}
+		seen[m.Value] = true
+		if !interopTypePattern.MatchString(m.Type) {
+			return fmt.Errorf("plugin %s: interop %s %q token %q must be 1-32 ASCII letters", id, label, m.Value, m.Type)
+		}
+		if err := check(m); err != nil {
+			return err
 		}
 	}
 	return nil

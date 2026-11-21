@@ -187,6 +187,12 @@ type Bundle struct {
 	// its text MediaFields and maps exact plugin-owned values to hints. Missing
 	// and unmapped values have no implicit fallback and therefore fail closed.
 	ScrobbleTarget *ScrobbleTargetSpec
+	// Interop declares how this plugin's catalog presents to external
+	// automation tools through Core's read-only compatibility surfaces: the
+	// item type each Media and container Entity carries, and the collection
+	// token each Library family scope carries. Nil means the plugin's
+	// Libraries are not offered on those surfaces.
+	Interop *InteropSpec
 	// LabelMaps map literal AI labels to this plugin's vocabulary. A plugin
 	// that declares none contributes no AI label mappings.
 	LabelMaps []LabelMapSpec
@@ -242,6 +248,32 @@ type ScrobbleTargetSpec struct {
 type ScrobbleTargetMapping struct {
 	Value string
 	Hint  scrobble.TargetHint
+}
+
+// InteropSpec maps plugin-owned values to opaque interop tokens. The tokens
+// are plugin data: Core echoes them on its compatibility surfaces and compares
+// them for equality, but never spells or interprets them. Values without a
+// mapping have no implicit fallback: Core lists no item for an unmapped Media
+// value or kind, and emits no collection token for an unmapped scope.
+type InteropSpec struct {
+	// MediaField names one declared text Media field whose exact values
+	// Media maps to item types. Required exactly when Media is non-empty.
+	MediaField string
+	// Media maps values of MediaField to item types.
+	Media []InteropMapping
+	// Kinds maps the names of this bundle's container Entity kinds to item
+	// types. Each item type names at most one kind.
+	Kinds []InteropMapping
+	// Scopes maps this bundle's declared FamilyScope values to collection
+	// tokens for the Libraries bound to that scope.
+	Scopes []InteropMapping
+}
+
+// InteropMapping maps one exact plugin-owned value to one interop token.
+// Value is compared as opaque data. Type is 1-32 ASCII letters.
+type InteropMapping struct {
+	Value string
+	Type  string
 }
 
 // BrowseLayout returns the bundle's browse Layout — the home Layout
