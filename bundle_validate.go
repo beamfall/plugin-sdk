@@ -22,6 +22,7 @@ var (
 	localeTagPattern         = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,8})*$`)
 	configPlaceholderPattern = regexp.MustCompile(`\{config\.([^{}]*)\}`)
 	hintPlaceholderStart     = regexp.MustCompile(`(?i:\{hint\.)`)
+	urlTemplateBracesPattern = regexp.MustCompile(`^[^{}]*(\{[^{}]*\}[^{}]*)*$`)
 	// referencePlaceholderPattern matches a {ref.<name>:<path>} map-path
 	// placeholder reading a declared ReferenceDocument.
 	referencePlaceholderPattern = regexp.MustCompile(`\{ref\.([^{}:]*):[^{}]*\}`)
@@ -670,6 +671,12 @@ func ValidateBundle(bundle Bundle) error {
 				if strings.TrimSpace(entityMap.LookupIDPath) == "" {
 					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q reference lookup ID path is blank", bundle.ID, scraper.ID, entityMap.Kind)
 				}
+				if hintPlaceholderStart.MatchString(entityMap.LookupTemplate) {
+					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q reference lookup template uses a hint placeholder outside SearchTemplate", bundle.ID, scraper.ID, entityMap.Kind)
+				}
+				if !urlTemplateBracesPattern.MatchString(entityMap.LookupTemplate) {
+					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q reference lookup template has unmatched or nested placeholder braces", bundle.ID, scraper.ID, entityMap.Kind)
+				}
 			} else if entityMap.MaxLookups < 0 {
 				return fmt.Errorf("plugin %s: scraper %q entity map for kind %q max lookups must not be negative", bundle.ID, scraper.ID, entityMap.Kind)
 			}
@@ -1305,6 +1312,8 @@ func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, confi
 				return fmt.Errorf("plugin %s: scraper %q %s template references undeclared config field %q", pluginID, scraper.ID, template.name, match[1])
 			}
 		}
+		beforeFragment, _, _ := strings.Cut(template.value, "#")
+		queryStart := strings.IndexByte(beforeFragment, '?')
 		for _, start := range hintPlaceholderStart.FindAllStringIndex(template.value, -1) {
 			if template.name != "search" {
 				return fmt.Errorf("plugin %s: scraper %q %s template uses a hint placeholder outside SearchTemplate", pluginID, scraper.ID, template.name)
@@ -1314,7 +1323,13 @@ func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, confi
 			if !closed || !prefixed || !ValidHintKey(key) {
 				return fmt.Errorf("plugin %s: scraper %q SearchTemplate has a malformed hint placeholder (want {hint.<key>} with a valid hint key)", pluginID, scraper.ID)
 			}
+			if scraper.Kind == "http-graphql" || queryStart < 0 || start[0] <= queryStart || start[0] >= len(beforeFragment) {
+				return fmt.Errorf("plugin %s: scraper %q SearchTemplate hint placeholders require a URL query", pluginID, scraper.ID)
+			}
 			searchHints[key] = true
+		}
+		if scraper.Kind != "http-graphql" && !urlTemplateBracesPattern.MatchString(template.value) {
+			return fmt.Errorf("plugin %s: scraper %q %s template has unmatched or nested placeholder braces", pluginID, scraper.ID, template.name)
 		}
 	}
 	if len(scraper.RequiredSearchHints) > maxParsedHints {

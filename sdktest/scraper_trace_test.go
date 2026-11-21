@@ -91,6 +91,31 @@ func TestScraperTraceSearchHintRendering(t *testing.T) {
 	}})
 }
 
+func TestScraperTraceSearchHintRenderingBoundary(t *testing.T) {
+	const endpoint = "https://api.example.test"
+	const body = `query{titles(q:"{query}",filter:"?v={hint.key}"){ id }}`
+	input := TraceInput{Query: "title", Hints: map[string]string{"key": "A+B"}}
+	RunScraperTraceConformance(t, []ScraperTraceVector{
+		{
+			Name:  "GraphQL leaves a hint placeholder literal",
+			Spec:  sdk.ScraperSpec{Kind: "http-graphql", Endpoint: endpoint, SearchTemplate: body},
+			Input: input,
+			Want: ScraperTrace{Requests: []TraceRequest{{
+				Role: "search", Page: 1, Method: "POST", URL: endpoint,
+				Body: strings.ReplaceAll(body, "{query}", input.Query),
+			}}},
+		},
+		{
+			Name:  "GET substitutes hints only in the URL query",
+			Spec:  sdk.ScraperSpec{Kind: "http-json", Endpoint: endpoint, SearchTemplate: "/{hint.key}?v={hint.key}#{hint.key}"},
+			Input: input,
+			Want: ScraperTrace{Requests: []TraceRequest{{
+				Role: "search", Page: 1, Method: "GET", URL: endpoint + "/{hint.key}?v=A%2BB#{hint.key}",
+			}}},
+		},
+	})
+}
+
 func TestScraperTraceSkipsSearchWithoutRequiredHints(t *testing.T) {
 	spec := tmdbLikeSpec()
 	spec.AuthStyle = "login-bearer"

@@ -884,10 +884,22 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 		t.Fatalf("ValidateBundle rejected valid search hint placeholders: %v", err)
 	}
 
-	graphql := newBundle(`query{hint(filter:"{hint._1}"){id}}`)
-	graphql.Scrapers[0].Kind = "http-graphql"
-	if err := ValidateBundle(graphql); err != nil {
-		t.Fatalf("ValidateBundle rejected GraphQL with braces and a hint placeholder: %v", err)
+	t.Run("GraphQL", func(t *testing.T) {
+		graphql := newBundle(`query{titles(filter:"{query}"){ id }}`)
+		graphql.Scrapers[0].Kind = "http-graphql"
+		if err := ValidateBundle(graphql); err != nil {
+			t.Fatalf("ValidateBundle rejected GraphQL with ordinary braces: %v", err)
+		}
+		graphql.Scrapers[0].SearchTemplate = `query{titles(filter:"?v={hint._1}"){ id }}`
+		wantBundleError(t, graphql, "hint placeholders require a URL query")
+	})
+
+	for _, template := range []string{
+		"/search/{hint._1}?q={query}", "/search?q={query}#{hint._1}", "/search#?v={hint._1}",
+	} {
+		t.Run(template, func(t *testing.T) {
+			wantBundleError(t, newBundle(template), "hint placeholders require a URL query")
+		})
 	}
 
 	for _, placeholder := range []string{
@@ -896,6 +908,15 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 	} {
 		t.Run(placeholder, func(t *testing.T) {
 			wantBundleError(t, newBundle("/search?q={query}&v="+placeholder), "malformed hint placeholder")
+		})
+	}
+
+	for _, template := range []string{
+		"/search?v={{hint._1}}", "/search?v={{hint._1}", "/search?v={hint._1}}",
+		"/search?v={{query}}", "/search?v={query", "/search?v=query}",
+	} {
+		t.Run(template, func(t *testing.T) {
+			wantBundleError(t, newBundle(template), "unmatched or nested placeholder braces")
 		})
 	}
 
@@ -926,6 +947,22 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 	lookup := scraperBundle()
 	lookup.Scrapers[0].LookupTemplate = "/lookup/{id}?v={hint._1}"
 	wantBundleError(t, lookup, "hint placeholder outside SearchTemplate")
+}
+
+func TestValidateBundleEntityMapLookupPlaceholders(t *testing.T) {
+	b := scraperBundle()
+	b.Scrapers[0].EntityMaps = []EntityMap{{
+		Kind: "genre", Relation: "genres", Path: "genres",
+		LookupTemplate: "/genre/{id}", LookupIDPath: "id", MaxLookups: 3,
+	}}
+	if err := ValidateBundle(b); err != nil {
+		t.Fatalf("ValidateBundle rejected a valid entity map lookup: %v", err)
+	}
+	entityMap := &b.Scrapers[0].EntityMaps[0]
+	entityMap.LookupTemplate = "/genre/{id}?v={hint.key}"
+	wantBundleError(t, b, "hint placeholder outside SearchTemplate")
+	entityMap.LookupTemplate = "/genre/{{id}}"
+	wantBundleError(t, b, "unmatched or nested placeholder braces")
 }
 
 func TestValidateBundleEmbeddedTagHints(t *testing.T) {

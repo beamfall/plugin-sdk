@@ -36,7 +36,7 @@ type TraceInput struct {
 	// compiles no search request.
 	Query string
 	// Hints supplies plugin-chosen search values as in sdk.ParsedMedia.Hints.
-	// Pass the raw values. The trace URL-query-escapes them during substitution.
+	// Pass the raw values. The trace escapes them when substituting into a URL query.
 	Hints map[string]string
 	// ID is the {id} substitution for the lookup request; empty compiles no
 	// lookup request (unless fingerprints alone drive it — see LookupTemplate).
@@ -241,14 +241,27 @@ func loginRequests(spec sdk.ScraperSpec) []TraceRequest {
 
 var searchHintPlaceholder = regexp.MustCompile(`\{hint\.[a-z0-9_]{1,32}\}`)
 
+func substituteSearchHints(template string, hints map[string]string) string {
+	beforeFragment, _, _ := strings.Cut(template, "#")
+	path, query, hasQuery := strings.Cut(beforeFragment, "?")
+	if !hasQuery {
+		return template
+	}
+	query = searchHintPlaceholder.ReplaceAllStringFunc(query, func(token string) string {
+		key := strings.TrimSuffix(strings.TrimPrefix(token, "{hint."), "}")
+		return url.QueryEscape(hints[key])
+	})
+	return path + "?" + query + template[len(beforeFragment):]
+}
+
 func searchRequests(spec sdk.ScraperSpec, input TraceInput, vars map[string]string, method string, auth AuthPlacement) []TraceRequest {
 	if spec.SearchTemplate == "" || input.Query == "" {
 		return nil
 	}
-	template := searchHintPlaceholder.ReplaceAllStringFunc(spec.SearchTemplate, func(token string) string {
-		key := strings.TrimSuffix(strings.TrimPrefix(token, "{hint."), "}")
-		return url.QueryEscape(input.Hints[key])
-	})
+	template := spec.SearchTemplate
+	if method == "GET" {
+		template = substituteSearchHints(template, input.Hints)
+	}
 	pages := spec.MaxPages
 	if pages < 1 {
 		pages = 1

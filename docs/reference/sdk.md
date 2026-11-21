@@ -1874,10 +1874,12 @@ type ScraperSpec struct {
 	// Bundle.ConfigFields entry. {year} substitutes the year identification
 	// parsed or knows for the item; when the year is unknown, a query
 	// parameter whose whole value is {year} is dropped from the request
-	// rather than sent empty. {hint.<key>} substitutes the value from
-	// ParsedMedia.Hints (key must satisfy ValidHintKey). The host escapes each
-	// value with net/url.QueryEscape, and substitutes an empty string when the
-	// hint is missing or empty. Requires CandidatesPath. Not valid on rss.
+	// rather than sent empty. Within the URL query, {hint.<key>} substitutes
+	// the value from ParsedMedia.Hints (key must satisfy ValidHintKey). The host
+	// escapes each value with net/url.QueryEscape and substitutes an empty
+	// string when the hint is missing or empty. GraphQL request bodies reject
+	// hint placeholders until the SDK defines GraphQL value binding. Requires
+	// CandidatesPath. Not valid on rss.
 	SearchTemplate string
 	// RequiredSearchHints lists hint keys referenced by SearchTemplate that
 	// must have non-empty values. The host skips this scraper for that search
