@@ -489,6 +489,9 @@ type TraceInput struct {
 	// Query is the free-text {query} substitution for the search request; empty
 	// compiles no search request.
 	Query string
+	// Hints supplies plugin-chosen search values as in sdk.ParsedMedia.Hints.
+	// Pass the raw values. The trace URL-query-escapes them during substitution.
+	Hints map[string]string
 	// ID is the {id} substitution for the lookup request; empty compiles no
 	// lookup request (unless fingerprints alone drive it — see LookupTemplate).
 	ID string

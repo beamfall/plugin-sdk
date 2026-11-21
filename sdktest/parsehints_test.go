@@ -15,7 +15,7 @@ import (
 // other path parses title-only, the legacy shape.
 type hintParser struct{}
 
-func (hintParser) Parse(path string, _ sdk.ParseProbe) (sdk.ParsedMedia, bool) {
+func (hintParser) Parse(path string, probe sdk.ParseProbe) (sdk.ParsedMedia, bool) {
 	if path == "" {
 		return sdk.ParsedMedia{}, false
 	}
@@ -25,21 +25,27 @@ func (hintParser) Parse(path string, _ sdk.ParseProbe) (sdk.ParsedMedia, bool) {
 		return sdk.ParsedMedia{Title: stem}, true
 	}
 	id := strings.TrimSuffix(stem[open+len("{tmdb-"):], "}")
-	return sdk.ParsedMedia{
+	result := sdk.ParsedMedia{
 		Title:       strings.TrimSpace(stem[:open]),
 		ProviderIDs: map[string]string{"tmdb": id},
 		HintSource:  sdk.ParseHintSourceFilename,
-	}, true
+	}
+	if qualifier := probe.Tags["qualifier"]; qualifier != "" {
+		result.Hints = map[string]string{"qualifier": qualifier}
+	}
+	return result, true
 }
 
-// TestRunConformanceGreenWithProviderIDs: the SDK conformance suite is green
-// for a parser that sets ProviderIDs, and a vector can assert the hint.
+// TestRunConformanceGreenWithProviderIDs also asserts a named search hint.
 func TestRunConformanceGreenWithProviderIDs(t *testing.T) {
 	sdktest.RunConformance(t, hintParser{}, []sdktest.ParseVector{
-		{Name: "tagged", Path: "Blade Runner {tmdb-78}.mkv", WantOK: true, Want: sdk.ParsedMedia{
+		{Name: "tagged", Path: "Blade Runner {tmdb-78}.mkv", WantOK: true, Probe: sdk.ParseProbe{
+			Tags: map[string]string{"qualifier": "example"},
+		}, Want: sdk.ParsedMedia{
 			Title:       "Blade Runner",
 			ProviderIDs: map[string]string{"tmdb": "78"},
 			HintSource:  sdk.ParseHintSourceFilename,
+			Hints:       map[string]string{"qualifier": "example"},
 		}},
 		{Name: "untagged", Path: "Heat.mkv", WantOK: true, Want: sdk.ParsedMedia{Title: "Heat"}},
 		{Name: "refused", Path: "", WantOK: false},

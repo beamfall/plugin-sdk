@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -50,6 +51,24 @@ type ParsedMedia struct {
 	// carries a label, and shows the label in every client's version picker.
 	// Must satisfy ValidVersionLabel.
 	VersionLabel string
+	// Hints carries optional, plugin-chosen values for scraper searches.
+	// Keys must satisfy ValidHintKey. A parse result may carry at most 16
+	// entries, each at most 256 bytes. An empty value is treated as missing
+	// during search. Hints do not use HintSource or ProviderIDVocabulary.
+	Hints map[string]string `json:",omitempty"`
+}
+
+const (
+	maxParsedHints    = 16
+	maxParsedHintSize = 256
+)
+
+var hintKeyPattern = regexp.MustCompile(`^[a-z0-9_]{1,32}$`)
+
+// ValidHintKey reports whether key contains between 1 and 32 ASCII lowercase
+// letters, digits, or underscores.
+func ValidHintKey(key string) bool {
+	return hintKeyPattern.MatchString(key)
 }
 
 // MaxVersionLabelLen bounds ParsedMedia.VersionLabel in bytes.
@@ -132,11 +151,22 @@ func ValidProviderIDKey(key string) bool {
 	return entity == strings.ToLower(entity) && !strings.ContainsAny(entity, "<>")
 }
 
-// ValidateParseHints checks the ProviderIDs/HintSource pairing contract on a
-// parse result: nil ProviderIDs requires an empty HintSource; a populated map
-// requires a recognized HintSource, recognized provider keys, and non-empty ID
-// values. A parser that carries no hints passes unchanged.
+// ValidateParseHints checks the Hints key, count, and value size limits, and
+// the ProviderIDs/HintSource pairing. An empty ProviderIDs map requires an
+// empty HintSource. A populated map requires a recognized HintSource,
+// recognized provider keys, and non-empty ID values.
 func ValidateParseHints(m ParsedMedia) error {
+	if len(m.Hints) > maxParsedHints {
+		return fmt.Errorf("parsed hints may contain at most %d entries", maxParsedHints)
+	}
+	for key, value := range m.Hints {
+		if !ValidHintKey(key) {
+			return fmt.Errorf("parsed hint key %q must match [a-z0-9_]{1,32}", key)
+		}
+		if len(value) > maxParsedHintSize {
+			return fmt.Errorf("parsed hint %q may contain at most %d bytes", key, maxParsedHintSize)
+		}
+	}
 	if len(m.ProviderIDs) == 0 {
 		if m.HintSource != ParseHintSourceNone {
 			return fmt.Errorf("HintSource %q set without ProviderIDs", m.HintSource)

@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -96,11 +97,44 @@ func TestCandidateOrdinalPresenceOldCallerFailsSafe(t *testing.T) {
 // validates unchanged.
 func TestParseHintsAreAdditive(t *testing.T) {
 	got, ok := legacyFilenameParser{}.Parse("a", ParseProbe{})
-	if !ok || got.ProviderIDs != nil || got.HintSource != ParseHintSourceNone {
+	if !ok || got.Hints != nil || got.ProviderIDs != nil || got.HintSource != ParseHintSourceNone {
 		t.Fatalf("legacy parse carried hints: %+v", got)
 	}
 	if err := ValidateParseHints(got); err != nil {
 		t.Fatalf("legacy parse failed the hint contract: %v", err)
+	}
+}
+
+func TestValidateNamedParseHints(t *testing.T) {
+	atLimit := make(map[string]string)
+	for i := range 15 {
+		atLimit["key_"+strconv.Itoa(i)] = ""
+	}
+	atLimit[strings.Repeat("x", 32)] = strings.Repeat("é", 128)
+	if err := ValidateParseHints(ParsedMedia{Hints: atLimit}); err != nil {
+		t.Fatalf("ValidateParseHints rejected hints at the limits: %v", err)
+	}
+	atLimit["_"] = "extra"
+
+	for _, tc := range []struct {
+		name  string
+		hints map[string]string
+		want  string
+	}{
+		{"too many", atLimit, "at most 16 entries"},
+		{"too many bytes", map[string]string{"key": strings.Repeat("é", 128) + "a"}, "at most 256 bytes"},
+		{"empty key", map[string]string{"": "value"}, "must match"},
+		{"uppercase key", map[string]string{"Key": "value"}, "must match"},
+		{"unicode key", map[string]string{"clé": "value"}, "must match"},
+		{"hyphenated key", map[string]string{"key-name": "value"}, "must match"},
+		{"long key", map[string]string{strings.Repeat("x", 33): "value"}, "must match"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateParseHints(ParsedMedia{Hints: tc.hints})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("ValidateParseHints error = %v, want %q", err, tc.want)
+			}
+		})
 	}
 }
 

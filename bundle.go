@@ -141,6 +141,11 @@ type Bundle struct {
 	// "detail" Layouts, addressable by stable ID for entity detail views.
 	Layouts  []LayoutSpec
 	Scrapers []ScraperSpec
+	// EmbeddedTagHints maps exact, non-blank ParseProbe.Tags names to distinct
+	// plugin-chosen hint keys (ValidHintKey), with at most 16 mappings. The
+	// host reads the embedded tags and fills absent or empty ParsedMedia.Hints
+	// entries from non-empty tag values, then validates the resulting hints.
+	EmbeddedTagHints map[string]string `json:",omitempty"`
 	// Importers are this plugin's Migration Wizard sources: the
 	// declarative Importer Extension Point, parallel to Scrapers. Each entry
 	// declares one source system the plugin can import behavioral state from.

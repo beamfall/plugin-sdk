@@ -21,6 +21,7 @@ var (
 	accentPattern            = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 	localeTagPattern         = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,8})*$`)
 	configPlaceholderPattern = regexp.MustCompile(`\{config\.([^{}]*)\}`)
+	hintPlaceholderStart     = regexp.MustCompile(`(?i:\{hint\.)`)
 	// referencePlaceholderPattern matches a {ref.<name>:<path>} map-path
 	// placeholder reading a declared ReferenceDocument.
 	referencePlaceholderPattern = regexp.MustCompile(`\{ref\.([^{}:]*):[^{}]*\}`)
@@ -61,6 +62,9 @@ func ValidateBundle(bundle Bundle) error {
 	}
 	if bundle.IdentificationPolicy != "" && !slices.Contains(IdentificationPolicies(), bundle.IdentificationPolicy) {
 		return fmt.Errorf("plugin %s: identification policy %q is not in {auto, queue}", bundle.ID, bundle.IdentificationPolicy)
+	}
+	if err := validateEmbeddedTagHints(bundle.EmbeddedTagHints); err != nil {
+		return fmt.Errorf("plugin %s: %w", bundle.ID, err)
 	}
 	if bundle.ControlPolicy != "" && !slices.Contains(ControlPolicies(), bundle.ControlPolicy) {
 		return fmt.Errorf("plugin %s: control policy %q is not in {%s}", bundle.ID, bundle.ControlPolicy, strings.Join(ControlPolicies(), ", "))
@@ -525,7 +529,7 @@ func ValidateBundle(bundle Bundle) error {
 		if err := validateLookupByIDRecordIDPaths(scraper); err != nil {
 			return fmt.Errorf("plugin %s: %w", bundle.ID, err)
 		}
-		if err := validateScraperConfigPlaceholders(bundle.ID, scraper, configFields); err != nil {
+		if err := validateScraperTemplatePlaceholders(bundle.ID, scraper, configFields); err != nil {
 			return err
 		}
 		if err := validateReferenceDocuments(scraper, configFields); err != nil {
@@ -1259,7 +1263,27 @@ func validateReferenceDocuments(scraper ScraperSpec, configFields map[string]boo
 	return nil
 }
 
-func validateScraperConfigPlaceholders(pluginID ID, scraper ScraperSpec, configFields map[string]bool) error {
+func validateEmbeddedTagHints(mappings map[string]string) error {
+	if len(mappings) > maxParsedHints {
+		return fmt.Errorf("EmbeddedTagHints may contain at most %d mappings", maxParsedHints)
+	}
+	keys := map[string]bool{}
+	for tag, key := range mappings {
+		if strings.TrimSpace(tag) == "" {
+			return fmt.Errorf("EmbeddedTagHints tag name must not be blank")
+		}
+		if !ValidHintKey(key) {
+			return fmt.Errorf("EmbeddedTagHints key %q must match [a-z0-9_]{1,32}", key)
+		}
+		if keys[key] {
+			return fmt.Errorf("EmbeddedTagHints maps more than one tag to hint %q", key)
+		}
+		keys[key] = true
+	}
+	return nil
+}
+
+func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, configFields map[string]bool) error {
 	templates := []struct {
 		name  string
 		value string
@@ -1274,11 +1298,34 @@ func validateScraperConfigPlaceholders(pluginID ID, scraper ScraperSpec, configF
 			value string
 		}{name: fmt.Sprintf("lookup-by-ID[%q]", provider), value: template})
 	}
+	searchHints := map[string]bool{}
 	for _, template := range templates {
 		for _, match := range configPlaceholderPattern.FindAllStringSubmatch(template.value, -1) {
 			if !configFields[match[1]] {
 				return fmt.Errorf("plugin %s: scraper %q %s template references undeclared config field %q", pluginID, scraper.ID, template.name, match[1])
 			}
+		}
+		for _, start := range hintPlaceholderStart.FindAllStringIndex(template.value, -1) {
+			if template.name != "search" {
+				return fmt.Errorf("plugin %s: scraper %q %s template uses a hint placeholder outside SearchTemplate", pluginID, scraper.ID, template.name)
+			}
+			selector, _, closed := strings.Cut(template.value[start[0]:], "}")
+			key, prefixed := strings.CutPrefix(selector, "{hint.")
+			if !closed || !prefixed || !ValidHintKey(key) {
+				return fmt.Errorf("plugin %s: scraper %q SearchTemplate has a malformed hint placeholder (want {hint.<key>} with a valid hint key)", pluginID, scraper.ID)
+			}
+			searchHints[key] = true
+		}
+	}
+	if len(scraper.RequiredSearchHints) > maxParsedHints {
+		return fmt.Errorf("plugin %s: scraper %q RequiredSearchHints may contain at most %d keys", pluginID, scraper.ID, maxParsedHints)
+	}
+	for i, key := range scraper.RequiredSearchHints {
+		if !searchHints[key] {
+			return fmt.Errorf("plugin %s: scraper %q required search hint %q is not referenced by SearchTemplate", pluginID, scraper.ID, key)
+		}
+		if slices.Contains(scraper.RequiredSearchHints[:i], key) {
+			return fmt.Errorf("plugin %s: scraper %q duplicate required search hint %q", pluginID, scraper.ID, key)
 		}
 	}
 	return nil
@@ -1319,6 +1366,8 @@ func validateLocalFileScraper(pluginID ID, scraper ScraperSpec) error {
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare an endpoint", pluginID, scraper.ID, scraper.Kind)
 	case scraper.LookupTemplate != "" || scraper.SearchTemplate != "" || scraper.ItemLookupTemplate != "":
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare URL templates", pluginID, scraper.ID, scraper.Kind)
+	case len(scraper.RequiredSearchHints) != 0:
+		return fmt.Errorf("plugin %s: scraper %q required search hints need a search template", pluginID, scraper.ID)
 	case scraper.AuthRef != "" || scraper.AuthStyle != "" || scraper.Login != nil:
 		return fmt.Errorf("plugin %s: scraper %q is a local-file kind %q and must not declare auth", pluginID, scraper.ID, scraper.Kind)
 	case scraper.CandidatesPath != "" || scraper.CandidateIDPath != "":

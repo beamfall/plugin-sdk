@@ -401,6 +401,14 @@ TransformKinds returns the fixed value-transform vocabulary: per-field post-proc
 	"date-from-rfc822"    RFC-822 date (RSS pubDate) → "YYYY-MM-DD"
 	"seconds-from-clock"  "HH:MM:SS"/"MM:SS"/plain seconds → seconds
 
+## func ValidHintKey
+
+```go
+func ValidHintKey(key string) bool
+```
+
+ValidHintKey reports whether key contains between 1 and 32 ASCII lowercase letters, digits, or underscores.
+
 ## func ValidParseHintSource
 
 ```go
@@ -463,7 +471,7 @@ ValidateLookupByIDTemplates checks a scraper's LookupByIDTemplate map: every key
 func ValidateParseHints(m ParsedMedia) error
 ```
 
-ValidateParseHints checks the ProviderIDs/HintSource pairing contract on a parse result: nil ProviderIDs requires an empty HintSource; a populated map requires a recognized HintSource, recognized provider keys, and non-empty ID values. A parser that carries no hints passes unchanged.
+ValidateParseHints checks the Hints key, count, and value size limits, and the ProviderIDs/HintSource pairing. An empty ProviderIDs map requires an empty HintSource. A populated map requires a recognized HintSource, recognized provider keys, and non-empty ID values.
 
 ## func ValidateVersionLabel
 
@@ -620,6 +628,11 @@ type Bundle struct {
 	// "detail" Layouts, addressable by stable ID for entity detail views.
 	Layouts  []LayoutSpec
 	Scrapers []ScraperSpec
+	// EmbeddedTagHints maps exact, non-blank ParseProbe.Tags names to distinct
+	// plugin-chosen hint keys (ValidHintKey), with at most 16 mappings. The
+	// host reads the embedded tags and fills absent or empty ParsedMedia.Hints
+	// entries from non-empty tag values, then validates the resulting hints.
+	EmbeddedTagHints map[string]string `json:",omitempty"`
 	// Importers are this plugin's Migration Wizard sources: the
 	// declarative Importer Extension Point, parallel to Scrapers. Each entry
 	// declares one source system the plugin can import behavioral state from.
@@ -1633,6 +1646,11 @@ type ParsedMedia struct {
 	// carries a label, and shows the label in every client's version picker.
 	// Must satisfy ValidVersionLabel.
 	VersionLabel string
+	// Hints carries optional, plugin-chosen values for scraper searches.
+	// Keys must satisfy ValidHintKey. A parse result may carry at most 16
+	// entries, each at most 256 bytes. An empty value is treated as missing
+	// during search. Hints do not use HintSource or ProviderIDVocabulary.
+	Hints map[string]string `json:",omitempty"`
 }
 ```
 
@@ -1856,8 +1874,16 @@ type ScraperSpec struct {
 	// Bundle.ConfigFields entry. {year} substitutes the year identification
 	// parsed or knows for the item; when the year is unknown, a query
 	// parameter whose whole value is {year} is dropped from the request
-	// rather than sent empty. Requires CandidatesPath. Not valid on rss.
+	// rather than sent empty. {hint.<key>} substitutes the value from
+	// ParsedMedia.Hints (key must satisfy ValidHintKey). The host escapes each
+	// value with net/url.QueryEscape, and substitutes an empty string when the
+	// hint is missing or empty. Requires CandidatesPath. Not valid on rss.
 	SearchTemplate string
+	// RequiredSearchHints lists hint keys referenced by SearchTemplate that
+	// must have non-empty values. The host skips this scraper for that search
+	// if any is missing or empty. Independent lookups are unaffected. Keys
+	// must be unique, and at most 16 may be required.
+	RequiredSearchHints []string `json:",omitempty"`
 	// MaxPages caps the number of search pages the engine may fetch. Zero
 	// means one page, preserving existing scrapers.
 	MaxPages int

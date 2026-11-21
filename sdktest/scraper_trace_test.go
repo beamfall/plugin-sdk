@@ -68,6 +68,62 @@ func TestScraperTraceHappyPath(t *testing.T) {
 	})
 }
 
+func TestScraperTraceSearchHintRendering(t *testing.T) {
+	spec := sdk.ScraperSpec{
+		ID:                  "example-hints",
+		Kind:                "http-json",
+		Endpoint:            "https://api.example.test",
+		SearchTemplate:      "/search?q={query}&v={hint.key}&again={hint.key}&missing={hint.other}&page={page}",
+		RequiredSearchHints: []string{"key"},
+		CandidatesPath:      "results",
+		MaxPages:            2,
+	}
+	input := TraceInput{Query: "title", Hints: map[string]string{"key": "A + B&é{page}"}}
+	target := "https://api.example.test/search?q=title&v=A+%2B+B%26%C3%A9%7Bpage%7D&again=A+%2B+B%26%C3%A9%7Bpage%7D&missing=&page="
+	RunScraperTraceConformance(t, []ScraperTraceVector{{
+		Name:  "query-escaped and optional hint absent",
+		Spec:  spec,
+		Input: input,
+		Want: ScraperTrace{Requests: []TraceRequest{
+			{Role: "search", Page: 1, Method: "GET", URL: target + "1"},
+			{Role: "search", Page: 2, Method: "GET", URL: target + "2"},
+		}},
+	}})
+}
+
+func TestScraperTraceSkipsSearchWithoutRequiredHints(t *testing.T) {
+	spec := tmdbLikeSpec()
+	spec.AuthStyle = "login-bearer"
+	spec.Login = &sdk.LoginSpec{Path: "/login", SecretField: "apikey", TokenPath: "data.token"}
+	spec.SearchTemplate = "/search?q={query}&first={hint.first}&second={hint.second}"
+	spec.RequiredSearchHints = []string{"first", "second"}
+
+	input := tmdbLikeInput()
+	input.ID = ""
+	for _, tc := range []struct {
+		name  string
+		hints map[string]string
+	}{
+		{"missing", map[string]string{"first": "present"}},
+		{"empty", map[string]string{"first": "present", "second": ""}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := input
+			input.Hints = tc.hints
+			got := CompileScraperTrace(spec, input)
+			if len(got.Requests) != 0 || len(got.Candidates) != 0 {
+				t.Fatalf("got requests %v and candidates %v", got.Requests, got.Candidates)
+			}
+		})
+	}
+
+	input.ID = "42"
+	got := CompileScraperTrace(spec, input)
+	if len(got.Requests) != 2 || got.Requests[0].Role != "login" || got.Requests[1].Role != "lookup" || len(got.Candidates) != 0 {
+		t.Fatalf("expected the independent login and lookup, got requests %v and candidates %v", got.Requests, got.Candidates)
+	}
+}
+
 // TestScraperTraceCompilerIsDeterministic: compiling twice yields identical
 // traces — the reference oracle must be stable input → output.
 func TestScraperTraceCompilerIsDeterministic(t *testing.T) {

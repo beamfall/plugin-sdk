@@ -201,8 +201,16 @@ type ScraperSpec struct {
 	// Bundle.ConfigFields entry. {year} substitutes the year identification
 	// parsed or knows for the item; when the year is unknown, a query
 	// parameter whose whole value is {year} is dropped from the request
-	// rather than sent empty. Requires CandidatesPath. Not valid on rss.
+	// rather than sent empty. {hint.<key>} substitutes the value from
+	// ParsedMedia.Hints (key must satisfy ValidHintKey). The host escapes each
+	// value with net/url.QueryEscape, and substitutes an empty string when the
+	// hint is missing or empty. Requires CandidatesPath. Not valid on rss.
 	SearchTemplate string
+	// RequiredSearchHints lists hint keys referenced by SearchTemplate that
+	// must have non-empty values. The host skips this scraper for that search
+	// if any is missing or empty. Independent lookups are unaffected. Keys
+	// must be unique, and at most 16 may be required.
+	RequiredSearchHints []string `json:",omitempty"`
 	// MaxPages caps the number of search pages the engine may fetch. Zero
 	// means one page, preserving existing scrapers.
 	MaxPages int

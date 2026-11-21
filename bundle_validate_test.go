@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -862,6 +863,97 @@ func TestValidateBundleScraperConfigPlaceholders(t *testing.T) {
 			undeclared := scraperBundle()
 			setTemplate(&undeclared)
 			wantBundleError(t, undeclared, `template references undeclared config field "region"`)
+		})
+	}
+}
+
+func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
+	newBundle := func(template string) Bundle {
+		b := scraperBundle()
+		s := &b.Scrapers[0]
+		s.SearchTemplate = template
+		s.CandidatesPath = "results"
+		s.CandidateIDPath = "id"
+		return b
+	}
+	key := strings.Repeat("x", 32)
+	valid := newBundle("/search?q={query}&first={hint._1}&second={hint." + key + "}&region={config.region}")
+	valid.ConfigFields = []ConfigFieldSpec{{Name: "region", Type: "text", Label: L("Region")}}
+	valid.Scrapers[0].RequiredSearchHints = []string{key, "_1"}
+	if err := ValidateBundle(valid); err != nil {
+		t.Fatalf("ValidateBundle rejected valid search hint placeholders: %v", err)
+	}
+
+	graphql := newBundle(`query{hint(filter:"{hint._1}"){id}}`)
+	graphql.Scrapers[0].Kind = "http-graphql"
+	if err := ValidateBundle(graphql); err != nil {
+		t.Fatalf("ValidateBundle rejected GraphQL with braces and a hint placeholder: %v", err)
+	}
+
+	for _, placeholder := range []string{
+		"{hint.}", "{hint.Upper}", "{Hint.key}", "{hint.bad-key}", "{hint.x.y}",
+		"{hint.x", "{hint.{x}}", "{hint." + key + "x}",
+	} {
+		t.Run(placeholder, func(t *testing.T) {
+			wantBundleError(t, newBundle("/search?q={query}&v="+placeholder), "malformed hint placeholder")
+		})
+	}
+
+	for _, tc := range []struct {
+		name string
+		keys []string
+		want string
+	}{
+		{"unreferenced", []string{"other"}, "is not referenced"},
+		{"invalid", []string{"Bad"}, "is not referenced"},
+		{"duplicate", []string{"_1", "_1"}, "duplicate required search hint"},
+		{"too many", make([]string, 17), "at most 16 keys"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := newBundle("/search?q={query}&v={hint._1}")
+			b.Scrapers[0].RequiredSearchHints = tc.keys
+			wantBundleError(t, b, tc.want)
+		})
+	}
+
+	noSearch := scraperBundle()
+	noSearch.Scrapers[0].RequiredSearchHints = []string{"_1"}
+	wantBundleError(t, noSearch, "is not referenced")
+	local := validBundle()
+	local.Scrapers = []ScraperSpec{{ID: "local", Kind: "exif", RequiredSearchHints: []string{"_1"}}}
+	wantBundleError(t, local, "required search hints need a search template")
+
+	lookup := scraperBundle()
+	lookup.Scrapers[0].LookupTemplate = "/lookup/{id}?v={hint._1}"
+	wantBundleError(t, lookup, "hint placeholder outside SearchTemplate")
+}
+
+func TestValidateBundleEmbeddedTagHints(t *testing.T) {
+	atLimit := make(map[string]string)
+	for i := range 16 {
+		atLimit["TAG:"+strconv.Itoa(i)] = "hint_" + strconv.Itoa(i)
+	}
+	b := validBundle()
+	b.EmbeddedTagHints = atLimit
+	if err := ValidateBundle(b); err != nil {
+		t.Fatalf("ValidateBundle rejected valid embedded tag hints: %v", err)
+	}
+	atLimit["extra"] = "extra"
+
+	for _, tc := range []struct {
+		name     string
+		mappings map[string]string
+		want     string
+	}{
+		{"too many", atLimit, "at most 16 mappings"},
+		{"blank tag", map[string]string{" ": "key"}, "tag name must not be blank"},
+		{"invalid key", map[string]string{"TAG": "Bad"}, "must match"},
+		{"duplicate destination", map[string]string{"TAG": "key", "ALT": "key"}, "more than one tag to hint"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := validBundle()
+			b.EmbeddedTagHints = tc.mappings
+			wantBundleError(t, b, tc.want)
 		})
 	}
 }

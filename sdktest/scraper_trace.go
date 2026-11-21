@@ -3,6 +3,9 @@ package sdktest
 import (
 	"fmt"
 	"math"
+	"net/url"
+	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,6 +35,9 @@ type TraceInput struct {
 	// Query is the free-text {query} substitution for the search request; empty
 	// compiles no search request.
 	Query string
+	// Hints supplies plugin-chosen search values as in sdk.ParsedMedia.Hints.
+	// Pass the raw values. The trace URL-query-escapes them during substitution.
+	Hints map[string]string
 	// ID is the {id} substitution for the lookup request; empty compiles no
 	// lookup request (unless fingerprints alone drive it — see LookupTemplate).
 	ID string
@@ -153,11 +159,18 @@ func RunScraperTraceConformance(t *testing.T, vectors []ScraperTraceVector) {
 func CompileScraperTrace(spec sdk.ScraperSpec, input TraceInput) ScraperTrace {
 	vars := substitutionVars(input)
 	auth := authPlacement(spec)
+	skipSearch := slices.ContainsFunc(spec.RequiredSearchHints, func(key string) bool {
+		return input.Hints[key] == ""
+	})
+	var candidates []TraceCandidate
+	if !skipSearch {
+		candidates = compileCandidates(spec, input)
+	}
 	return ScraperTrace{
-		Requests:   compileRequests(spec, input, vars, auth),
+		Requests:   compileRequests(spec, input, vars, auth, skipSearch),
 		Fields:     resolveFieldMap(spec.FieldMap, spec.Transforms, input.LookupDoc),
 		Artwork:    resolveArtworkMap(spec, spec.ArtworkMap, input.LookupDoc),
-		Candidates: compileCandidates(spec, input),
+		Candidates: candidates,
 		Containers: compileContainers(spec, input.LookupDoc, input.EntityDocs),
 	}
 }
@@ -196,15 +209,20 @@ func substitute(tmpl string, vars map[string]string, page int) string {
 	return strings.ReplaceAll(out, "{page}", strconv.Itoa(page))
 }
 
-func compileRequests(spec sdk.ScraperSpec, input TraceInput, vars map[string]string, auth AuthPlacement) []TraceRequest {
+func compileRequests(spec sdk.ScraperSpec, input TraceInput, vars map[string]string, auth AuthPlacement, skipSearch bool) []TraceRequest {
 	method := implicitMethod(spec.Kind)
 	if method == "" {
 		return nil
 	}
-	requests := loginRequests(spec)
-	requests = append(requests, searchRequests(spec, input, vars, method, auth)...)
-	requests = append(requests, lookupRequest(spec, input, vars, method, auth)...)
-	return requests
+	lookup := lookupRequest(spec, input, vars, method, auth)
+	var search []TraceRequest
+	if !skipSearch {
+		search = searchRequests(spec, input, vars, method, auth)
+	} else if len(lookup) == 0 {
+		return nil
+	}
+	requests := append(loginRequests(spec), search...)
+	return append(requests, lookup...)
 }
 
 // loginRequests prepends the login-bearer token exchange when the spec declares
@@ -221,17 +239,23 @@ func loginRequests(spec sdk.ScraperSpec) []TraceRequest {
 	}}
 }
 
+var searchHintPlaceholder = regexp.MustCompile(`\{hint\.[a-z0-9_]{1,32}\}`)
+
 func searchRequests(spec sdk.ScraperSpec, input TraceInput, vars map[string]string, method string, auth AuthPlacement) []TraceRequest {
 	if spec.SearchTemplate == "" || input.Query == "" {
 		return nil
 	}
+	template := searchHintPlaceholder.ReplaceAllStringFunc(spec.SearchTemplate, func(token string) string {
+		key := strings.TrimSuffix(strings.TrimPrefix(token, "{hint."), "}")
+		return url.QueryEscape(input.Hints[key])
+	})
 	pages := spec.MaxPages
 	if pages < 1 {
 		pages = 1
 	}
 	requests := make([]TraceRequest, 0, pages)
 	for page := 1; page <= pages; page++ {
-		requests = append(requests, buildRequest("search", page, spec, substitute(spec.SearchTemplate, vars, page), method, auth))
+		requests = append(requests, buildRequest("search", page, spec, substitute(template, vars, page), method, auth))
 	}
 	return requests
 }
