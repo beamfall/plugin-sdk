@@ -38,3 +38,14 @@ the search template, appear once, and count toward the 16-hint limit.
 
 - **WHEN** an optional search hint is missing
 - **THEN** its placeholder renders as an empty string and the search may proceed
+
+### Requirement: Hint placeholders are limited to search URL queries
+
+Hint placeholders SHALL appear only in a search template's URL query. The bundle validator
+SHALL reject them in lookup templates and GraphQL request bodies. URL request templates
+SHALL reject nested or unmatched placeholder braces.
+
+#### Scenario: A scraper declares a hint placeholder in a GraphQL request
+
+- **WHEN** a GraphQL search body contains a hint placeholder
+- **THEN** bundle validation returns an error
