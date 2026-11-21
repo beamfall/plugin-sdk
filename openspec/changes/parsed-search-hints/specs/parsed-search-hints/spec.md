@@ -24,10 +24,11 @@ tags and validate the resulting parse hints before using them.
 
 ### Requirement: Scraper search templates may interpolate named hints
 
-`SearchTemplate` SHALL accept `{hint.<key>}` for valid hint keys and the bundle validator SHALL reject
-malformed hint placeholders. The host SHALL URL-query-escape each substituted value. A missing or
-empty value SHALL render as an empty string. Each `RequiredSearchHints` key SHALL be referenced by
-the search template, appear once, and count toward the 16-hint limit.
+`SearchTemplate` SHALL accept `{hint.<key>}` for valid hint keys unless the placeholder is immediately
+preceded by `{` or followed by `}`. After removing valid placeholders, the bundle validator SHALL
+reject any remaining `hint.` as malformed. The host SHALL URL-query-escape each substituted value.
+A missing or empty value SHALL render as an empty string. Each `RequiredSearchHints` key SHALL be
+referenced by the search template, appear once, and count toward the 16-hint limit.
 
 #### Scenario: A required hint is unavailable
 
@@ -42,8 +43,8 @@ the search template, appear once, and count toward the 16-hint limit.
 ### Requirement: Hint placeholders are limited to search URL queries
 
 Hint placeholders SHALL appear only in a search template's URL query. The bundle validator
-SHALL reject them in lookup templates and GraphQL request bodies. URL request templates
-SHALL reject nested or unmatched placeholder braces.
+SHALL reject them in lookup templates and GraphQL request bodies. URL request templates SHALL
+allow literal braces outside hint placeholders.
 
 #### Scenario: A scraper declares a hint placeholder in a GraphQL request
 
