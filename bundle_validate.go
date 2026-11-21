@@ -237,6 +237,12 @@ func ValidateBundle(bundle Bundle) error {
 		if err := validateLocaleString(kind.DisplayName); err != nil {
 			return fmt.Errorf("plugin %s: kind %q display name: %w", bundle.ID, kind.Name, err)
 		}
+		if err := validateLocaleString(kind.PluralDisplayName); err != nil {
+			return fmt.Errorf("plugin %s: kind %q plural display name: %w", bundle.ID, kind.Name, err)
+		}
+		if len(kind.PluralDisplayName) > 0 && len(kind.DisplayName) == 0 {
+			return fmt.Errorf("plugin %s: kind %q declares a plural display name without a display name", bundle.ID, kind.Name)
+		}
 		if !slices.Contains(Archetypes(), kind.Archetype) {
 			return fmt.Errorf("plugin %s: kind %q uses unknown archetype %q", bundle.ID, kind.Name, kind.Archetype)
 		}

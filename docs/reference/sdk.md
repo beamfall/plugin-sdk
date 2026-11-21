@@ -896,9 +896,13 @@ type EntityKind struct {
 	// DisplayName is the optional human label clients render for the kind
 	// (a locale map). Absent means clients fall back to Name.
 	DisplayName LocaleString
-	Archetype   string
-	Fields      []FieldSpec
-	Relations   []RelationSpec
+	// PluralDisplayName is the optional plural of DisplayName (a locale map),
+	// for headings over several Entities of the kind ("Albums"). It requires
+	// DisplayName. Absent means clients fall back to DisplayName, then Name.
+	PluralDisplayName LocaleString
+	Archetype         string
+	Fields            []FieldSpec
+	Relations         []RelationSpec
 	// OrderedChildren marks container kinds whose children carry a defined
 	// play order (play-next semantics).
 	OrderedChildren bool

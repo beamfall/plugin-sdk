@@ -865,3 +865,27 @@ func TestValidateBundleScraperConfigPlaceholders(t *testing.T) {
 		})
 	}
 }
+
+// TestKindPluralDisplayName covers EntityKind.PluralDisplayName: a valid
+// plural, a plural without a singular, and malformed locale maps.
+func TestKindPluralDisplayName(t *testing.T) {
+	withKind := func(kind EntityKind) Bundle {
+		b := validBundle()
+		kind.Name, kind.Archetype = "album", "container"
+		b.EntityKinds = []EntityKind{kind}
+		return b
+	}
+	valid := withKind(EntityKind{DisplayName: L("Album"), PluralDisplayName: LocaleString{"en": "Albums", "fr": "Albums"}})
+	if err := ValidateBundle(valid); err != nil {
+		t.Fatalf("ValidateBundle rejected a valid plural: %v", err)
+	}
+	if err := ValidateBundle(withKind(EntityKind{DisplayName: L("Album")})); err != nil {
+		t.Fatalf("ValidateBundle rejected a kind without a plural: %v", err)
+	}
+	wantBundleError(t, withKind(EntityKind{PluralDisplayName: L("Albums")}),
+		`kind "album" declares a plural display name without a display name`)
+	wantBundleError(t, withKind(EntityKind{DisplayName: L("Album"), PluralDisplayName: LocaleString{"fr": "Albums"}}),
+		`kind "album" plural display name: locale map must carry an "en" entry`)
+	wantBundleError(t, withKind(EntityKind{DisplayName: L("Album"), PluralDisplayName: LocaleString{"en": "Albums", "fr": " "}}),
+		`kind "album" plural display name: locale map value for "fr" is blank`)
+}

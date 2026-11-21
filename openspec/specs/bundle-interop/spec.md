@@ -1,7 +1,8 @@
 # bundle-interop Specification
 
 ## Purpose
-TBD - created by archiving change bundle-interop. Update Purpose after archive.
+How a plugin declares, as opaque plugin data, the item types and collection tokens Core's read-only
+compatibility surfaces show external automation tools for its Media, container kinds and family scopes.
 
 ## Requirements
 
