@@ -1,0 +1,15 @@
+## 1. Build
+
+- [x] 1.1 Add `EntityKind.PluralDisplayName` with validation
+- [x] 1.2 Regenerate docs with `script/gen-docs.sh`
+
+## 2. Prove
+
+- [x] 2.1 Unit tests for a valid plural and each rejection
+- [x] 2.2 `openspec validate --all --strict` and `script/gate.sh` pass
+
+## 3. Release
+
+- [x] 3.1 Set `Version` to `0.4.7` and record the first-party plugins at `[0.4.7, 0.4.7]`, then tag
+- [x] 3.2 Re-release the first-party plugins at that range and re-record the matrix at their tags
+- [x] 3.3 `openspec archive kind-plural-display-name -y`
