@@ -900,6 +900,7 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 		{"{{hint.key}}", true},
 		{"hint.key}", true},
 		{"/search?q={query}+hint.key}", true},
+		{"/search?q={query}#hint.key}", true},
 		{"{hint.key", true},
 		{"{hint.}", true},
 		{"/search?v={{hint._1}", true},

@@ -24,7 +24,7 @@ var (
 	hintPlaceholderPattern   = regexp.MustCompile(`\{hint\.([^{}]*)\}`)
 	// A malformed hint can have just one brace. With only a closing brace,
 	// look for a hint token at the start of a URL component or query term.
-	hintPlaceholderMarker = regexp.MustCompile(`(?i:\{hint\.|(?:^|[?&=/+])hint\.[[:alnum:]_.-]*\})`)
+	hintPlaceholderMarker = regexp.MustCompile(`(?i:\{hint\.|(?:^|[?&=/+#])hint\.[[:alnum:]_.-]*\})`)
 	// referencePlaceholderPattern matches a {ref.<name>:<path>} map-path
 	// placeholder reading a declared ReferenceDocument.
 	referencePlaceholderPattern = regexp.MustCompile(`\{ref\.([^{}:]*):[^{}]*\}`)
