@@ -254,7 +254,8 @@ type ScrobbleTargetMapping struct {
 // are plugin data: Core echoes them on its compatibility surfaces and compares
 // them for equality, but never spells or interprets them. Values without a
 // mapping have no implicit fallback: Core lists no item for an unmapped Media
-// value or kind, and emits no collection token for an unmapped scope.
+// value or kind, and emits no collection token for an unmapped scope. A
+// non-nil InteropSpec must declare at least one mapping.
 type InteropSpec struct {
 	// MediaField names one declared text Media field whose exact values
 	// Media maps to item types. Required exactly when Media is non-empty.
@@ -262,7 +263,8 @@ type InteropSpec struct {
 	// Media maps values of MediaField to item types.
 	Media []InteropMapping
 	// Kinds maps the names of this bundle's container Entity kinds to item
-	// types. Each item type names at most one kind.
+	// types. Each item type names at most one kind and never also appears
+	// in Media.
 	Kinds []InteropMapping
 	// Scopes maps this bundle's declared FamilyScope values to collection
 	// tokens for the Libraries bound to that scope.

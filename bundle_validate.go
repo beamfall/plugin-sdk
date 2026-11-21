@@ -960,11 +960,11 @@ func validateInterop(bundle Bundle, mediaFields map[string]string, containerKind
 	if spec == nil {
 		return nil
 	}
-	if len(spec.Media) == 0 && len(spec.Kinds) == 0 && len(spec.Scopes) == 0 {
-		return fmt.Errorf("plugin %s: interop declares no mappings", bundle.ID)
-	}
 	if (spec.MediaField == "") != (len(spec.Media) == 0) {
 		return fmt.Errorf("plugin %s: interop media field and media mappings must be declared together", bundle.ID)
+	}
+	if len(spec.Media) == 0 && len(spec.Kinds) == 0 && len(spec.Scopes) == 0 {
+		return fmt.Errorf("plugin %s: interop declares no mappings", bundle.ID)
 	}
 	if spec.MediaField != "" {
 		fieldType, declared := mediaFields[spec.MediaField]

@@ -7,12 +7,18 @@
 - container Entity kinds to item types;
 - declared family scopes to collection tokens.
 
-A bundle without `Interop` SHALL validate unchanged.
+A bundle without `Interop` SHALL validate unchanged. A non-nil `Interop` SHALL declare at least one
+mapping.
 
 #### Scenario: Valid declaration
 
 - **WHEN** a bundle maps two values of its text field `class`, two container kinds and one declared scope
 - **THEN** `ValidateBundle` accepts it
+
+#### Scenario: Empty declaration
+
+- **WHEN** a bundle declares an `Interop` with no mappings
+- **THEN** `ValidateBundle` returns an error
 
 #### Scenario: Absent declaration
 

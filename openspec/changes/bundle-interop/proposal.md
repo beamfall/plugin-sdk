@@ -51,5 +51,7 @@ vocabulary, which Core never spells (ADR-0171 §2.3), so the mapping has to come
 
 ## Rollback
 
-Revert the commit before the tag. After the tag, release a patch that drops the field. No consumer
-reads it until core's CORE-2681 lands.
+Revert the commit before the tag. After the tag, keep the exported field for all of `v0.4.x`, because
+removing it breaks every plugin that sets it. To withdraw the feature, Core stops reading the field,
+which needs no SDK release. Removing the field needs a minor release with coordinated first-party
+plugin updates (`COMPATIBILITY.md`).

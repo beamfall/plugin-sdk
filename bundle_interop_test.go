@@ -46,13 +46,19 @@ func TestValidateBundleInterop(t *testing.T) {
 			t.Fatalf("ValidateBundle rejected shared media item type: %v", err)
 		}
 	})
-	t.Run("kinds only", func(t *testing.T) {
-		b := interopBundle()
-		b.Interop.MediaField, b.Interop.Media = "", nil
-		if err := ValidateBundle(b); err != nil {
-			t.Fatalf("ValidateBundle rejected kind-only interop: %v", err)
-		}
-	})
+	for name, only := range map[string]func(*InteropSpec){
+		"media only":  func(s *InteropSpec) { s.Kinds, s.Scopes = nil, nil },
+		"kinds only":  func(s *InteropSpec) { s.MediaField, s.Media, s.Scopes = "", nil, nil },
+		"scopes only": func(s *InteropSpec) { s.MediaField, s.Media, s.Kinds = "", nil, nil },
+	} {
+		t.Run(name, func(t *testing.T) {
+			b := interopBundle()
+			only(b.Interop)
+			if err := ValidateBundle(b); err != nil {
+				t.Fatalf("ValidateBundle rejected %s interop: %v", name, err)
+			}
+		})
+	}
 
 	cases := []struct {
 		name   string
@@ -61,6 +67,7 @@ func TestValidateBundleInterop(t *testing.T) {
 	}{
 		{"empty", func(s *InteropSpec) { *s = InteropSpec{} }, `interop declares no mappings`},
 		{"field without media", func(s *InteropSpec) { s.Media = nil }, `interop media field and media mappings must be declared together`},
+		{"lone field", func(s *InteropSpec) { *s = InteropSpec{MediaField: "class"} }, `interop media field and media mappings must be declared together`},
 		{"media without field", func(s *InteropSpec) { s.MediaField = "" }, `interop media field and media mappings must be declared together`},
 		{"undeclared field", func(s *InteropSpec) { s.MediaField = "missing" }, `interop media field "missing" is not declared`},
 		{"non-text field", func(s *InteropSpec) { s.MediaField = "rank" }, `interop media field "rank" has type "number", want text`},
