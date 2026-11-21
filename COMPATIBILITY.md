@@ -1,14 +1,14 @@
 # Compatibility
 
-`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.5`,
-cut from `main`. It adds container map artwork slots, display title and sibling
-relations (CORE-2514, CORE-2513) on top of the `v0.4.4` entity map relation
-attributes, element filters and sort offsets, the `v0.4.3`
+`github.com/beamfall/plugin-sdk` is pre-1.0. The current release is `v0.4.6`,
+cut from `main`. It adds `Bundle.Interop` (CORE-2810) on top of the `v0.4.5`
+container map artwork slots, display title and sibling relations, the `v0.4.4`
+entity map relation attributes, element filters and sort offsets, the `v0.4.3`
 `Bundle.MediaSubtitle`, the `v0.4.1` per-item lookups and container entity maps
 and the `v0.4.0` catalog index schema v2 break, all described below. The
 previous line, `v0.3.x`, lives on the `release/v0.3` branch (last release
 `v0.3.7`). The compatibility matrix records the first-party plugins re-released
-against `v0.4.5` (CORE-2514).
+against `v0.4.6` (CORE-2811).
 
 `const Version` in `bundle.go` is the source of truth for the SDK artifact's
 exact identity. Released source MUST match the release tag it ships under, and
@@ -45,6 +45,19 @@ the next unused semver before it is tagged.
 - `CompatibleWithSDK` compares versions per SemVer §11 precedence: a pre-release
   (e.g. `0.1.6-rc1`) sorts **below** its release triple (`0.1.6`), so an rc does
   not satisfy a floor set to that release; build metadata (`+…`) is ignored.
+
+## v0.4.6: Bundle.Interop
+
+An additive, source-compatible patch (CORE-2810). `Bundle.Interop` lets a plugin
+declare how its catalog presents to external automation tools through Core's
+read-only compatibility surfaces:
+- values of one declared text Media field, and container Entity kinds, map to
+  item types;
+- declared family scopes map to collection tokens.
+
+Tokens are opaque plugin data of 1-32 ASCII letters, and the SDK holds no
+vocabulary of them. A bundle without `Interop` validates unchanged. `v0.4.6`
+re-records all ten first-party plugins at `[0.4.6, 0.4.6]`.
 
 ## v0.4.5: container map artwork, title and relations
 
