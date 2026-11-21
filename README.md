@@ -39,7 +39,7 @@ no telemetry.
 A plugin is its own Go module. Require the SDK by tag:
 
 ```sh
-go get github.com/beamfall/plugin-sdk@v0.4.6
+go get github.com/beamfall/plugin-sdk@v0.4.7
 ```
 
 Declare a `Bundle` and implement the scan seam. This is a complete plugin for home video clips
@@ -61,8 +61,8 @@ import (
 var Bundle = sdk.Bundle{
 	ID:           "clips",
 	Version:      "0.1.0",
-	SDKFloor:     "0.4.6",
-	SDKCeiling:   "0.4.6",
+	SDKFloor:     "0.4.7",
+	SDKCeiling:   "0.4.7",
 	DisplayName:  sdk.L("Home Clips"),
 	MediaLabel:   sdk.L("Clip"),
 	MediaClasses: []string{"video"},

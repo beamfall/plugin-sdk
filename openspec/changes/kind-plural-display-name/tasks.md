@@ -1,11 +1,11 @@
 ## 1. Build
 
 - [x] 1.1 Add `EntityKind.PluralDisplayName` with validation
-- [ ] 1.2 Regenerate docs with `script/gen-docs.sh`
+- [x] 1.2 Regenerate docs with `script/gen-docs.sh`
 
 ## 2. Prove
 
-- [ ] 2.1 Unit tests for a valid plural and each rejection
+- [x] 2.1 Unit tests for a valid plural and each rejection
 - [ ] 2.2 `openspec validate --all --strict` and `script/gate.sh` pass
 
 ## 3. Release

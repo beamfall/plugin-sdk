@@ -53,7 +53,7 @@ const MediaSubtitleSeparator = " · "
 MediaSubtitleSeparator joins the rendered segments of a MediaSubtitle.
 
 ```go
-const Version = "0.4.6"
+const Version = "0.4.7"
 ```
 
 Version is the exact SDK semver identity embedded by a Core build.
