@@ -884,14 +884,40 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 		t.Fatalf("ValidateBundle rejected valid search hint placeholders: %v", err)
 	}
 
-	for _, template := range []string{
-		`/search?filter={"title":"{query}"}`,
-		`/search?filter={"outer":{"title":"{query}","qualifier":"{hint.key}"}}`,
-		`/search?filter={"year":{year}}`,
+	for _, tc := range []struct {
+		template   string
+		wantReject bool
+	}{
+		{`/search?filter={"title":"{query}"}`, false},
+		{`/search?filter={"suffix":"}","year":{year}}`, false},
+		{`/search?filter={"outer":{"title":"{query}","qualifier":"{hint.key}"}}`, false},
+		{"/search?q={query}&h={hint.key}", false},
+		{"/search?v={{query}}", false},
+		{"/search?v={query", false},
+		{"/search?v=query}", false},
+		{"{{hint.key}}", true},
+		{"hint.key}", true},
+		{"/search?q={query}+hint.key}", true},
+		{"{hint.key", true},
+		{"{hint.}", true},
+		{"/search?v={{hint._1}", true},
+		{"/search?v={hint._1}}", true},
+		{`/search?filter={"title":"{query}"}&v={{hint.key}}`, true},
+		{"/search?v={hint.key}+hint.other}", true},
+		{"/search?v=hi{hint.key}nt.other}", true},
+		{"/search?v={hint.Upper}", true},
+		{"/search?v={Hint.key}", true},
+		{"/search?v={hint.bad-key}", true},
+		{"/search?v={hint.x.y}", true},
+		{"/search?v={hint.{x}}", true},
+		{"/search?v={hint." + key + "x}", true},
 	} {
-		t.Run(template, func(t *testing.T) {
-			if err := ValidateBundle(newBundle(template)); err != nil {
-				t.Fatalf("ValidateBundle rejected a search template with a literal JSON filter: %v", err)
+		t.Run(tc.template, func(t *testing.T) {
+			b := newBundle(tc.template)
+			if tc.wantReject {
+				wantBundleError(t, b, "malformed hint placeholder")
+			} else if err := ValidateBundle(b); err != nil {
+				t.Fatalf("ValidateBundle rejected search template: %v", err)
 			}
 		})
 	}
@@ -911,25 +937,6 @@ func TestValidateBundleSearchHintPlaceholders(t *testing.T) {
 	} {
 		t.Run(template, func(t *testing.T) {
 			wantBundleError(t, newBundle(template), "hint placeholders require a URL query")
-		})
-	}
-
-	for _, placeholder := range []string{
-		"{hint.}", "{hint.Upper}", "{Hint.key}", "{hint.bad-key}", "{hint.x.y}",
-		"{hint.x", "{hint.{x}}", "{hint." + key + "x}",
-	} {
-		t.Run(placeholder, func(t *testing.T) {
-			wantBundleError(t, newBundle("/search?q={query}&v="+placeholder), "malformed hint placeholder")
-		})
-	}
-
-	for _, template := range []string{
-		"/search?v={{hint.key}}", "/search?v={{hint._1}", "/search?v={hint._1}}",
-		`/search?filter={"title":"{query}"}&v={{hint.key}}`,
-		"/search?v={{query}}", "/search?v={query", "/search?v=query}",
-	} {
-		t.Run(template, func(t *testing.T) {
-			wantBundleError(t, newBundle(template), "unmatched or nested placeholder braces")
 		})
 	}
 
@@ -975,7 +982,9 @@ func TestValidateBundleEntityMapLookupPlaceholders(t *testing.T) {
 	entityMap.LookupTemplate = "/genre/{id}?v={hint.key}"
 	wantBundleError(t, b, "hint placeholder outside SearchTemplate")
 	entityMap.LookupTemplate = "/genre/{{id}}"
-	wantBundleError(t, b, "unmatched or nested placeholder braces")
+	if err := ValidateBundle(b); err != nil {
+		t.Fatalf("ValidateBundle rejected literal braces in entity map lookup: %v", err)
+	}
 }
 
 func TestValidateBundleEmbeddedTagHints(t *testing.T) {

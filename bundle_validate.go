@@ -21,10 +21,9 @@ var (
 	accentPattern            = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 	localeTagPattern         = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,8})*$`)
 	configPlaceholderPattern = regexp.MustCompile(`\{config\.([^{}]*)\}`)
-	hintPlaceholderStart     = regexp.MustCompile(`(?i:\{hint\.)`)
-	urlTemplateBraceToken    = regexp.MustCompile(`\{[[:alnum:]_.-]+\}|[{}]`)
-	// A known variable standing alone in a URL component may have lost one delimiter.
-	urlTemplateHalfPlaceholder = regexp.MustCompile(`(?:^|[=/])(?:\{(?:` + urlTemplateVariable + `)|(?:` + urlTemplateVariable + `)\})(?:$|[&#/])`)
+	hintPlaceholderPattern   = regexp.MustCompile(`\{hint\.([^{}]*)\}`)
+	// Preserve rejection of mixed-case placeholder prefixes such as {Hint.key}.
+	hintPlaceholderMarker = regexp.MustCompile(`hint\.|(?i:\{hint\.)`)
 	// referencePlaceholderPattern matches a {ref.<name>:<path>} map-path
 	// placeholder reading a declared ReferenceDocument.
 	referencePlaceholderPattern = regexp.MustCompile(`\{ref\.([^{}:]*):[^{}]*\}`)
@@ -32,8 +31,6 @@ var (
 	// extension with no dot (bundle.go doc).
 	sidecarExtPattern = regexp.MustCompile(`^[a-z0-9]+$`)
 )
-
-const urlTemplateVariable = `id|query|page|year|phash|oshash|duration|sequence|index|(?:config|hint)\.[[:alnum:]_.-]+`
 
 // ValidateBundle checks a Bundle against the fixed SDK vocabularies and the
 // declarative authoring invariants Core enforces before activating a plugin.
@@ -675,11 +672,8 @@ func ValidateBundle(bundle Bundle) error {
 				if strings.TrimSpace(entityMap.LookupIDPath) == "" {
 					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q reference lookup ID path is blank", bundle.ID, scraper.ID, entityMap.Kind)
 				}
-				if hintPlaceholderStart.MatchString(entityMap.LookupTemplate) {
+				if hintPlaceholderMarker.MatchString(entityMap.LookupTemplate) {
 					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q reference lookup template uses a hint placeholder outside SearchTemplate", bundle.ID, scraper.ID, entityMap.Kind)
-				}
-				if malformedURLPlaceholderDelimiters(entityMap.LookupTemplate) {
-					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q reference lookup template has unmatched or nested placeholder braces", bundle.ID, scraper.ID, entityMap.Kind)
 				}
 			} else if entityMap.MaxLookups < 0 {
 				return fmt.Errorf("plugin %s: scraper %q entity map for kind %q max lookups must not be negative", bundle.ID, scraper.ID, entityMap.Kind)
@@ -1316,24 +1310,34 @@ func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, confi
 				return fmt.Errorf("plugin %s: scraper %q %s template references undeclared config field %q", pluginID, scraper.ID, template.name, match[1])
 			}
 		}
+		if !hintPlaceholderMarker.MatchString(template.value) {
+			continue
+		}
+		if template.name != "search" {
+			return fmt.Errorf("plugin %s: scraper %q %s template uses a hint placeholder outside SearchTemplate", pluginID, scraper.ID, template.name)
+		}
 		beforeFragment, _, _ := strings.Cut(template.value, "#")
 		queryStart := strings.IndexByte(beforeFragment, '?')
-		for _, start := range hintPlaceholderStart.FindAllStringIndex(template.value, -1) {
-			if template.name != "search" {
-				return fmt.Errorf("plugin %s: scraper %q %s template uses a hint placeholder outside SearchTemplate", pluginID, scraper.ID, template.name)
+		var remainder strings.Builder
+		lastEnd := 0
+		for _, match := range hintPlaceholderPattern.FindAllStringSubmatchIndex(template.value, -1) {
+			start, end := match[0], match[1]
+			key := template.value[match[2]:match[3]]
+			if !ValidHintKey(key) ||
+				(start > 0 && template.value[start-1] == '{') ||
+				(end < len(template.value) && template.value[end] == '}') {
+				continue
 			}
-			selector, _, closed := strings.Cut(template.value[start[0]:], "}")
-			key, prefixed := strings.CutPrefix(selector, "{hint.")
-			if !closed || !prefixed || !ValidHintKey(key) {
-				return fmt.Errorf("plugin %s: scraper %q SearchTemplate has a malformed hint placeholder (want {hint.<key>} with a valid hint key)", pluginID, scraper.ID)
-			}
-			if scraper.Kind == "http-graphql" || queryStart < 0 || start[0] <= queryStart || start[0] >= len(beforeFragment) {
+			if scraper.Kind == "http-graphql" || queryStart < 0 || start <= queryStart || start >= len(beforeFragment) {
 				return fmt.Errorf("plugin %s: scraper %q SearchTemplate hint placeholders require a URL query", pluginID, scraper.ID)
 			}
 			searchHints[key] = true
+			remainder.WriteString(template.value[lastEnd:start])
+			lastEnd = end
 		}
-		if scraper.Kind != "http-graphql" && malformedURLPlaceholderDelimiters(template.value) {
-			return fmt.Errorf("plugin %s: scraper %q %s template has unmatched or nested placeholder braces", pluginID, scraper.ID, template.name)
+		remainder.WriteString(template.value[lastEnd:])
+		if hintPlaceholderMarker.MatchString(remainder.String()) {
+			return fmt.Errorf("plugin %s: scraper %q SearchTemplate has a malformed hint placeholder (want {hint.<key>} with a valid hint key)", pluginID, scraper.ID)
 		}
 	}
 	if len(scraper.RequiredSearchHints) > maxParsedHints {
@@ -1348,32 +1352,6 @@ func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, confi
 		}
 	}
 	return nil
-}
-
-func malformedURLPlaceholderDelimiters(template string) bool {
-	if urlTemplateHalfPlaceholder.MatchString(template) {
-		return true
-	}
-	// Literal braces can enclose a placeholder in a structured query value.
-	// Track them so a literal closing brace can immediately follow a substitution.
-	literalDepth := 0
-	for _, token := range urlTemplateBraceToken.FindAllStringIndex(template, -1) {
-		start, end := token[0], token[1]
-		switch template[start:end] {
-		case "{":
-			literalDepth++
-		case "}":
-			literalDepth = max(0, literalDepth-1)
-		default:
-			if start > 0 && template[start-1] == '{' {
-				return true
-			}
-			if literalDepth == 0 && end < len(template) && template[end] == '}' {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // validateImpliedMediaFields enforces the ImpliedMediaFields contract for one
