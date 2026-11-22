@@ -12,10 +12,11 @@ var archetypes = []string{"person", "container", "category"}
 // client rendering. Added rarely, in client releases.
 func Archetypes() []string { return copySlice(archetypes) }
 
-var artworkSlots = []string{"poster", "backdrop", "thumb", "logo", "portrait", "banner", "clearart", "disc", "season-poster"}
+var artworkSlots = []string{"poster", "backdrop", "thumb", "logo", "portrait", "banner", "clearart", "disc", "season-poster", "square"}
 
 // ArtworkSlots returns the fixed artwork slot vocabulary:
-// poster, backdrop, thumb, logo, portrait, banner, clearart, disc, and season-poster.
+// poster, backdrop, thumb, logo, portrait, banner, clearart, disc, season-poster,
+// and square (1:1, for album and podcast cover art).
 func ArtworkSlots() []string { return copySlice(artworkSlots) }
 
 var fieldTypes = []string{"text", "number", "date", "flag", "url"}

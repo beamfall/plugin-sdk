@@ -93,7 +93,7 @@ Archetypes returns the fixed vocabulary bridging declared Entity Kinds to client
 func ArtworkSlots() []string
 ```
 
-ArtworkSlots returns the fixed artwork slot vocabulary: poster, backdrop, thumb, logo, portrait, banner, clearart, disc, and season-poster.
+ArtworkSlots returns the fixed artwork slot vocabulary: poster, backdrop, thumb, logo, portrait, banner, clearart, disc, season-poster, and square (1:1, for album and podcast cover art).
 
 ## func AuthStyleForms
 

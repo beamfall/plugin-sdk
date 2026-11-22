@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -1010,5 +1011,23 @@ func TestValidateBundleScraperCandidateArtworkSlots(t *testing.T) {
 	duplicateSlot.Scrapers[0].CandidateArtworkSlots = []string{"backdrop", "backdrop"}
 	if err := ValidateBundle(duplicateSlot); err == nil {
 		t.Fatal("ValidateBundle accepted a duplicate candidate artwork slot")
+	}
+}
+
+// TestValidateBundleSquareArtworkSlot covers the 1:1 `square` slot (CORE-0468):
+// a scraper ArtworkMap entry for it validates, while unknown slots stay rejected.
+func TestValidateBundleSquareArtworkSlot(t *testing.T) {
+	if !slices.Contains(ArtworkSlots(), "square") {
+		t.Fatal("ArtworkSlots() does not include square")
+	}
+	valid := scraperBundle()
+	valid.Scrapers[0].ArtworkMap = map[string]string{"square": "cover_path"}
+	if err := ValidateBundle(valid); err != nil {
+		t.Fatalf("ValidateBundle rejected a square ArtworkMap entry: %v", err)
+	}
+	unknown := scraperBundle()
+	unknown.Scrapers[0].ArtworkMap = map[string]string{"not-a-slot": "cover_path"}
+	if err := ValidateBundle(unknown); err == nil {
+		t.Fatal("ValidateBundle accepted an unknown artwork slot")
 	}
 }

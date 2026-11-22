@@ -47,6 +47,13 @@ the next unused semver before it is tagged.
   (e.g. `0.1.6-rc1`) sorts **below** its release triple (`0.1.6`), so an rc does
   not satisfy a floor set to that release; build metadata (`+…`) is ignored.
 
+## Unreleased: `square` artwork slot
+
+An additive, source-compatible change (CORE-0468). `ArtworkSlots()` gains `square`, a 1:1 slot
+for album and podcast cover art. ADR-0003 clients skip slots they do not know, so bundles that
+map `square` stay valid for older clients. It ships in the next release, whose `Version` must
+match its unused tag; adopting plugins pin that version.
+
 ## v0.4.7: EntityKind.PluralDisplayName
 
 An additive, source-compatible patch (CORE-2820). `EntityKind.PluralDisplayName`
