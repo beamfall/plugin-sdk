@@ -21,6 +21,8 @@ var (
 	accentPattern            = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 	localeTagPattern         = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,8})*$`)
 	configPlaceholderPattern = regexp.MustCompile(`\{config\.([^{}]*)\}`)
+	childLevelPattern        = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+	childPlaceholderPattern  = regexp.MustCompile(`\{([^{}]*)\}`)
 	hintPlaceholderPattern   = regexp.MustCompile(`\{hint\.([^{}]*)\}`)
 	// A malformed hint can have just one brace. With only a closing brace,
 	// look for a hint token at the start of a URL component or query term.
@@ -32,6 +34,12 @@ var (
 	// extension with no dot (bundle.go doc).
 	sidecarExtPattern = regexp.MustCompile(`^[a-z0-9]+$`)
 )
+
+// A CandidatesPath segment is a key or array index, optionally with a
+// predicate. Dots in predicate values are literal.
+const childPathSegment = `[^.\[\]]+(\[[^\[\],=]+=[^\[\],]*(,[^\[\],=]+=[^\[\],]*)*\])?`
+
+var childPathPattern = regexp.MustCompile(`^` + childPathSegment + `(\.` + childPathSegment + `)*$`)
 
 // ValidateBundle checks a Bundle against the fixed SDK vocabularies and the
 // declarative authoring invariants Core enforces before activating a plugin.
@@ -498,6 +506,9 @@ func ValidateBundle(bundle Bundle) error {
 			return fmt.Errorf("plugin %s: duplicate scraper ID %q", bundle.ID, scraper.ID)
 		}
 		scraperIDs[scraper.ID] = true
+		if err := validateChildListings(bundle.ID, scraper); err != nil {
+			return err
+		}
 		if !slices.Contains(ScraperKinds(), scraper.Kind) {
 			return fmt.Errorf("plugin %s: scraper %q uses unknown kind %q", bundle.ID, scraper.ID, scraper.Kind)
 		}
@@ -1289,20 +1300,101 @@ func validateEmbeddedTagHints(mappings map[string]string) error {
 	return nil
 }
 
+func validateChildListings(pluginID ID, scraper ScraperSpec) error {
+	if len(scraper.Children) == 0 {
+		return nil
+	}
+	const maxLevels = 3
+	if len(scraper.Children) > maxLevels {
+		return fmt.Errorf("plugin %s: scraper %q child level %d exceeds the limit of %d levels", pluginID, scraper.ID, maxLevels+1, maxLevels)
+	}
+	if scraper.Kind != "http-json" || scraper.SearchTemplate == "" {
+		return fmt.Errorf("plugin %s: scraper %q child level 1 requires an http-json scraper with a SearchTemplate", pluginID, scraper.ID)
+	}
+	levels := make(map[string]bool, len(scraper.Children))
+	for i, child := range scraper.Children {
+		if err := validateChildListing(child, levels); err != nil {
+			return fmt.Errorf("plugin %s: scraper %q child level %d: %w", pluginID, scraper.ID, i+1, err)
+		}
+		levels[child.Level] = true
+	}
+	return nil
+}
+
+func validateChildListing(child ChildListing, levels map[string]bool) error {
+	switch {
+	case !childLevelPattern.MatchString(child.Level):
+		return fmt.Errorf("listing Level %q must be lower-kebab", child.Level)
+	case levels[child.Level]:
+		return fmt.Errorf("duplicate Level %q", child.Level)
+	case !validChildListTarget(child.ListTemplate):
+		return errors.New("listing ListTemplate must be an endpoint-relative path with an optional query")
+	case child.MaxItems < 0 || child.MaxItems > 500:
+		return errors.New("listing MaxItems must be between 0 and 500")
+	}
+	for _, field := range []struct{ name, path string }{
+		{"ItemsPath", child.ItemsPath}, {"Key", child.Key}, {"Label", child.Label},
+	} {
+		if strings.TrimSpace(field.path) == "" || !childPathPattern.MatchString(field.path) {
+			return fmt.Errorf("%s must be a non-empty JSON path", field.name)
+		}
+	}
+	return nil
+}
+
+func validChildListTarget(template string) bool {
+	if !strings.HasPrefix(template, "/") || strings.Contains(template, "#") {
+		return false
+	}
+	target, err := url.ParseRequestURI(template)
+	return err == nil && !strings.HasPrefix(target.Path, "//") &&
+		!strings.Contains(target.Path, "://") && !strings.Contains(target.Path, `\`) &&
+		!slices.Contains(strings.Split(target.Path, "/"), "..")
+}
+
+func validateChildListPlaceholders(template string, level int) error {
+	if strings.ContainsAny(childPlaceholderPattern.ReplaceAllString(template, ""), "{}") {
+		return errors.New("has a malformed placeholder")
+	}
+	usesPrevious := false
+	for _, match := range childPlaceholderPattern.FindAllStringSubmatch(template, -1) {
+		switch match[1] {
+		case "parent", "sequence", "index":
+			if level == 1 {
+				return fmt.Errorf("cannot use %s at the first level", match[0])
+			}
+			usesPrevious = true
+		case "id":
+		default:
+			if !strings.HasPrefix(match[1], "config.") {
+				return fmt.Errorf("uses unsupported placeholder %s", match[0])
+			}
+		}
+	}
+	if level > 1 && !usesPrevious {
+		return errors.New("must use {parent}, {sequence}, or {index} from the previous level")
+	}
+	return nil
+}
+
 func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, configFields map[string]bool) error {
-	templates := []struct {
-		name  string
-		value string
-	}{
+	type scraperTemplate struct {
+		name       string
+		value      string
+		childLevel int
+	}
+	templates := []scraperTemplate{
 		{name: "lookup", value: scraper.LookupTemplate},
 		{name: "search", value: scraper.SearchTemplate},
 		{name: "item lookup", value: scraper.ItemLookupTemplate},
 	}
 	for provider, template := range scraper.LookupByIDTemplate {
-		templates = append(templates, struct {
-			name  string
-			value string
-		}{name: fmt.Sprintf("lookup-by-ID[%q]", provider), value: template})
+		templates = append(templates, scraperTemplate{name: fmt.Sprintf("lookup-by-ID[%q]", provider), value: template})
+	}
+	for i, child := range scraper.Children {
+		templates = append(templates, scraperTemplate{
+			name: fmt.Sprintf("child level %d list", i+1), value: child.ListTemplate, childLevel: i + 1,
+		})
 	}
 	searchHints := map[string]bool{}
 	for _, template := range templates {
@@ -1311,11 +1403,17 @@ func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, confi
 				return fmt.Errorf("plugin %s: scraper %q %s template references undeclared config field %q", pluginID, scraper.ID, template.name, match[1])
 			}
 		}
-		if !hintPlaceholderMarker.MatchString(template.value) {
-			continue
-		}
-		if template.name != "search" {
+		hasHint := hintPlaceholderMarker.MatchString(template.value)
+		if hasHint && template.name != "search" {
 			return fmt.Errorf("plugin %s: scraper %q %s template uses a hint placeholder outside SearchTemplate", pluginID, scraper.ID, template.name)
+		}
+		if template.childLevel > 0 {
+			if err := validateChildListPlaceholders(template.value, template.childLevel); err != nil {
+				return fmt.Errorf("plugin %s: scraper %q %s template %w", pluginID, scraper.ID, template.name, err)
+			}
+		}
+		if !hasHint {
+			continue
 		}
 		beforeFragment, _, _ := strings.Cut(template.value, "#")
 		queryStart := strings.IndexByte(beforeFragment, '?')

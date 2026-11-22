@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Scrapers can declare up to three child listing levels below a search candidate
+  (ADR-0068 amendment H). This is additive, and older cores ignore the field.
 - Plugins can supply named identification hints in parse results or map embedded tags to hint keys.
   Scraper search templates can reference those hints in URL queries and require them before searching.
   The SDK rejects malformed hint placeholders and hints in lookup templates or GraphQL search

@@ -224,6 +224,10 @@ type ScraperSpec struct {
 	// the value a chosen candidate feeds back into LookupTemplate's {id}.
 	// Required when both templates are declared.
 	CandidateIDPath string
+	// Children declares up to three child listing levels below a search
+	// candidate, walked in order by a manager picking a container and item
+	// (ADR-0068 amendment H). Empty means the scraper offers no child listing.
+	Children []ChildListing `json:",omitempty"`
 	// FieldMap maps core field names (title, sortTitle, summary, year, …) to response
 	// paths (dotted JSON path, GraphQL selection path, or RSS element). A JSON
 	// path may use a name[key=value] predicate segment to select the first
@@ -315,6 +319,44 @@ type ScraperSpec struct {
 	// Declarative only: the SDK records the guid source, core writes the
 	// resolved value as the item's External ID at apply time.
 	ArchiveBackfillGUIDPath string
+}
+
+// ChildListing describes one level of rows below a scraper search candidate.
+type ChildListing struct {
+	// Level is the client-facing lower-kebab label, unique within Children.
+	Level string
+	// ListTemplate is an endpoint-relative path with an optional query. It
+	// may use {id} for the search candidate and {config.<name>} for declared
+	// config fields. Every level after the first must use at least one of
+	// {parent}, {sequence}, or {index} from the previous row. The first level
+	// cannot use those placeholders.
+	ListTemplate string
+	// ItemsPath identifies the response array in the CandidatesPath dialect.
+	ItemsPath string
+	// Key is the row-relative path to the value substituted as {parent}.
+	Key string
+	// Label is the row-relative path to the display label.
+	Label string
+	// Sequence is the optional row-relative path to an ordinal sequence.
+	Sequence string `json:",omitempty"`
+	// Index is the optional row-relative path to an ordinal index.
+	Index string `json:",omitempty"`
+	// Year is an optional row-relative path to a year or date.
+	Year string `json:",omitempty"`
+	// Artwork is an optional row-relative path to an artwork path or URL,
+	// resolved with the scraper's ArtworkBaseURL.
+	Artwork string `json:",omitempty"`
+	// MaxItems caps rows returned at this level. Zero selects the default
+	// of 200, and the maximum is 500.
+	MaxItems int `json:",omitempty"`
+}
+
+// ValidChildKeySegment reports whether v is safe to use as a single child
+// listing path segment. Core must also check that the key was returned by the
+// previous level and URL-escape it before substituting it.
+func ValidChildKeySegment(v string) bool {
+	return v != "" && v != "." && v != ".." && !strings.ContainsAny(v, `/\?#`) &&
+		!strings.Contains(v, "%2f") && !strings.Contains(v, "%2F")
 }
 
 // ValidateLookupByIDTemplates checks a scraper's LookupByIDTemplate map: every
