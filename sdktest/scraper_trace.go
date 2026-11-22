@@ -13,6 +13,7 @@ import (
 	"time"
 
 	sdk "github.com/beamfall/plugin-sdk"
+	"github.com/beamfall/plugin-sdk/internal/jsonpath"
 )
 
 // This file is the scraper REFERENCE-TRACE VALIDATOR, NOT the
@@ -450,24 +451,27 @@ func resolveArray(doc map[string]any, path string) ([]map[string]any, bool) {
 // may carry a predicate selecting the first array element whose keys match
 // every comma-separated condition (results[iso_3166_1=US].rating).
 func resolveNode(doc any, path string) (any, bool) {
+	segments, ok := jsonpath.Parse(path)
+	if !ok {
+		return nil, false
+	}
 	cur := doc
-	for _, segment := range splitPath(path) {
+	for _, segment := range segments {
 		switch node := cur.(type) {
 		case map[string]any:
-			key, conditions, predicate := pathPredicate(segment)
-			value, ok := node[key]
+			value, ok := node[segment.Key]
 			if !ok {
 				return nil, false
 			}
-			if predicate {
-				if value, ok = selectByPredicate(value, conditions); !ok {
+			if len(segment.Conditions) != 0 {
+				if value, ok = selectByPredicate(value, segment.Conditions); !ok {
 					return nil, false
 				}
 			}
 			cur = value
 		case []any:
-			index, err := strconv.Atoi(segment)
-			if err != nil || index < 0 || index >= len(node) {
+			index, err := strconv.Atoi(segment.Key)
+			if len(segment.Conditions) != 0 || err != nil || index < 0 || index >= len(node) {
 				return nil, false
 			}
 			cur = node[index]
@@ -476,41 +480,6 @@ func resolveNode(doc any, path string) (any, bool) {
 		}
 	}
 	return cur, true
-}
-
-// splitPath splits on dots outside predicate brackets.
-func splitPath(path string) []string {
-	var segments []string
-	start, depth := 0, 0
-	for i, r := range path {
-		switch r {
-		case '[':
-			depth++
-		case ']':
-			depth--
-		case '.':
-			if depth == 0 {
-				segments = append(segments, path[start:i])
-				start = i + 1
-			}
-		}
-	}
-	return append(segments, path[start:])
-}
-
-func pathPredicate(segment string) (key string, conditions [][2]string, ok bool) {
-	key, predicate, found := strings.Cut(segment, "[")
-	if !found || key == "" || !strings.HasSuffix(predicate, "]") {
-		return segment, nil, false
-	}
-	for _, condition := range strings.Split(strings.TrimSuffix(predicate, "]"), ",") {
-		name, value, found := strings.Cut(condition, "=")
-		if !found || name == "" {
-			return segment, nil, false
-		}
-		conditions = append(conditions, [2]string{name, value})
-	}
-	return key, conditions, true
 }
 
 func selectByPredicate(node any, conditions [][2]string) (any, bool) {

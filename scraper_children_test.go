@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/beamfall/plugin-sdk/internal/jsonpath"
 )
 
 func childListingBundle(children ...ChildListing) Bundle {
@@ -42,6 +44,36 @@ func TestValidateBundleChildListings(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := ValidateBundle(childListingBundle(tc.children...)); err != nil {
 				t.Fatalf("ValidateBundle rejected valid child listings: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateBundleChildPathParity(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{"items", true},
+		{"data.0.items", true},
+		{"groups[tag=edition[1]].items", true},
+		{"groups[tag=edition,version=1.0].items", true},
+		{"groups[tag=].items", true},
+		{"data..items", false},
+		{"groups[tag=edition[1].items", false},
+		{"groups[tag].items", false},
+		{"", false},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("%q", tc.path), func(t *testing.T) {
+			_, parsed := jsonpath.Parse(tc.path)
+			if parsed != tc.want {
+				t.Fatalf("CandidatesPath parser accepted %q = %t, want %t", tc.path, parsed, tc.want)
+			}
+			child := ChildListing{Level: "item", ListTemplate: "/list/{id}", ItemsPath: tc.path, Key: "id", Label: "name"}
+			err := ValidateBundle(childListingBundle(child))
+			if (err == nil) != parsed {
+				t.Errorf("ValidateBundle accepted child path %q = %t, parser accepted = %t (error: %v)", tc.path, err == nil, parsed, err)
 			}
 		})
 	}
@@ -87,6 +119,7 @@ func TestValidateBundleRejectsInvalidChildListings(t *testing.T) {
 		{"malformed key path", 1, func(s *ScraperSpec) { s.Children[0].Key = "data[id" }, "Key must be a non-empty JSON path"},
 		{"empty label path", 1, func(s *ScraperSpec) { s.Children[0].Label = " " }, "Label must be a non-empty JSON path"},
 		{"malformed label path", 2, func(s *ScraperSpec) { s.Children[1].Label = "names[language].text" }, "Label must be a non-empty JSON path"},
+		{"malformed sequence path", 1, func(s *ScraperSpec) { s.Children[0].Sequence = "data..sequence" }, "Sequence must be a non-empty JSON path"},
 		{"negative cap", 1, func(s *ScraperSpec) { s.Children[0].MaxItems = -1 }, "MaxItems must be between 0 and 500"},
 		{"excessive cap", 1, func(s *ScraperSpec) { s.Children[0].MaxItems = 501 }, "MaxItems must be between 0 and 500"},
 	}

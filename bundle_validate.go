@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"golang.org/x/text/unicode/norm"
+
+	"github.com/beamfall/plugin-sdk/internal/jsonpath"
 )
 
 var (
@@ -34,12 +36,6 @@ var (
 	// extension with no dot (bundle.go doc).
 	sidecarExtPattern = regexp.MustCompile(`^[a-z0-9]+$`)
 )
-
-// A CandidatesPath segment is a key or array index, optionally with a
-// predicate. Dots in predicate values are literal.
-const childPathSegment = `[^.\[\]]+(\[[^\[\],=]+=[^\[\],]*(,[^\[\],=]+=[^\[\],]*)*\])?`
-
-var childPathPattern = regexp.MustCompile(`^` + childPathSegment + `(\.` + childPathSegment + `)*$`)
 
 // ValidateBundle checks a Bundle against the fixed SDK vocabularies and the
 // declarative authoring invariants Core enforces before activating a plugin.
@@ -1332,10 +1328,22 @@ func validateChildListing(child ChildListing, levels map[string]bool) error {
 	case child.MaxItems < 0 || child.MaxItems > 500:
 		return errors.New("listing MaxItems must be between 0 and 500")
 	}
-	for _, field := range []struct{ name, path string }{
-		{"ItemsPath", child.ItemsPath}, {"Key", child.Key}, {"Label", child.Label},
+	for _, field := range []struct {
+		name, path string
+		optional   bool
+	}{
+		{"ItemsPath", child.ItemsPath, false},
+		{"Key", child.Key, false},
+		{"Label", child.Label, false},
+		{"Sequence", child.Sequence, true},
+		{"Index", child.Index, true},
+		{"Year", child.Year, true},
+		{"Artwork", child.Artwork, true},
 	} {
-		if strings.TrimSpace(field.path) == "" || !childPathPattern.MatchString(field.path) {
+		if field.optional && field.path == "" {
+			continue
+		}
+		if _, ok := jsonpath.Parse(field.path); !ok {
 			return fmt.Errorf("%s must be a non-empty JSON path", field.name)
 		}
 	}
