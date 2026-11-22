@@ -144,7 +144,14 @@ func TestScraperTraceListPaths(t *testing.T) {
 			if err := json.Unmarshal([]byte(tc.doc), &doc); err != nil {
 				t.Fatal(err)
 			}
-			trace := CompileScraperTrace(spec, TraceInput{Query: "example", SearchDoc: doc})
+			input := TraceInput{Query: "example"}
+			switch doc := doc.(type) {
+			case map[string]any:
+				input.SearchDoc = doc
+			case []any:
+				input.SearchArray = doc
+			}
+			trace := CompileScraperTrace(spec, input)
 			if !reflect.DeepEqual(trace.Candidates, tc.want) {
 				t.Errorf("candidates = %#v, want %#v", trace.Candidates, tc.want)
 			}
