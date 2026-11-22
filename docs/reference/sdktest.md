@@ -503,8 +503,9 @@ type TraceInput struct {
 	// resolve against. Nil resolves nothing (every mapped value is omitted).
 	LookupDoc map[string]any
 	// SearchDoc is the decoded JSON search response CandidatesPath resolves the
-	// candidate array from. Nil compiles no candidates.
-	SearchDoc map[string]any
+	// candidate array from. It can be a JSON object or a bare array. Nil
+	// compiles no candidates.
+	SearchDoc any
 	// EntityDocs supplies the referenced documents of EntityMaps that declare a
 	// LookupTemplate, keyed by that template with {id} replaced by the
 	// element's LookupIDPath value ("/person/101"). Such a map resolves

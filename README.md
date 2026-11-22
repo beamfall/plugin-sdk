@@ -34,6 +34,11 @@ no telemetry.
 | [`catalogindex`](docs/reference/catalogindex.md) | Offline Ed25519 verification and local filtering of the signed plugin catalog index. No network I/O. |
 | [`compatibility`](docs/reference/compatibility.md) | The recorded compatibility matrix: which exact first-party plugin artifact passed conformance against which SDK version, and `Verify` to check a bundle against it. |
 
+Use `$` for a bare JSON array in a scraper's `CandidatesPath` or child listing
+`ItemsPath`. A terminal predicate such as `data.rows[?kind.type=primary]` keeps
+all matching rows in response order. See the [scraper path reference](docs/reference/sdk.md#type-scraperspec)
+for predicate comparisons and scalar mappings.
+
 ## Quick start
 
 A plugin is its own Go module. Require the SDK by tag:

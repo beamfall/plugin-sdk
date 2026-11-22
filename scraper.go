@@ -219,6 +219,10 @@ type ScraperSpec struct {
 	// CandidatesPath is the response path of the search results array
 	// ("results" for TMDB, "data" for TVDB, the root field for GraphQL);
 	// FieldMap/ArtworkMap then apply per array element.
+	// Use "$" for a bare response array or append "[?key=value,...]" to an
+	// array key or "$" to keep every matching row in response order. A
+	// filter-all predicate must end the path. Both forms are list-only
+	// syntax shared with ChildListing.ItemsPath.
 	CandidatesPath string
 	// CandidateIDPath is the element-relative path of a candidate's id —
 	// the value a chosen candidate feeds back into LookupTemplate's {id}.
@@ -234,9 +238,13 @@ type ScraperSpec struct {
 	// array element whose key equals value; value may be a literal or a
 	// {config.<name>} reference. Example:
 	// release_dates.results[iso_3166_1={config.region}].release_dates.0.certification.
-	// A predicate may hold several comma-separated key=value conditions, all
-	// of which must match ([slug=background,recordType=series]). A path may
-	// list alternatives separated by "||": the first alternative that
+	// Both predicate forms may hold several comma-separated key=value
+	// conditions, all of which must match ([slug=background,recordType=series]).
+	// Each condition tries a literal row key first, then a row-relative
+	// dotted path. Values compare as strings: JSON numbers use their numeric
+	// string form (integral values omit the decimal point) and booleans use
+	// "true" or "false". Null, missing values, arrays and objects never match.
+	// A path may list alternatives separated by "||": the first alternative that
 	// resolves wins, so a translated value can fall back to the original
 	// (data.translations.nameTranslations[language={config.language}].name||data.name).
 	// Paths resolve against the lookup document, and — when no SearchFieldMap
@@ -331,7 +339,8 @@ type ChildListing struct {
 	// {parent}, {sequence}, or {index} from the previous row. The first level
 	// cannot use those placeholders.
 	ListTemplate string
-	// ItemsPath identifies the response array in the CandidatesPath dialect.
+	// ItemsPath identifies the response array in the CandidatesPath dialect,
+	// including "$" for a bare array and terminal filter-all predicates.
 	ItemsPath string
 	// Key is the row-relative path to the value substituted as {parent}.
 	Key string

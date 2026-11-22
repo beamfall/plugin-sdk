@@ -59,6 +59,10 @@ func TestValidateBundleChildPathParity(t *testing.T) {
 		{"groups[tag=edition[1]].items", true},
 		{"groups[tag=edition,version=1.0].items", true},
 		{"groups[tag=].items", true},
+		{"$", true},
+		{"$[?type=official]", true},
+		{"data.seasons[?type.type=official]", true},
+		{"data.seasons[?type.type=official].items", false},
 		{"data..items", false},
 		{"groups[tag=edition[1].items", false},
 		{"groups[tag].items", false},
@@ -75,6 +79,51 @@ func TestValidateBundleChildPathParity(t *testing.T) {
 			if (err == nil) != parsed {
 				t.Errorf("ValidateBundle accepted child path %q = %t, parser accepted = %t (error: %v)", tc.path, err == nil, parsed, err)
 			}
+		})
+	}
+}
+
+func TestValidateBundleListSyntaxPositions(t *testing.T) {
+	child := ChildListing{Level: "item", ListTemplate: "/list/{id}", ItemsPath: "items", Key: "id", Label: "name"}
+	positions := []struct {
+		name string
+		set  func(*ScraperSpec, string)
+	}{
+		{"CandidateIDPath", func(s *ScraperSpec, p string) { s.CandidateIDPath = p }},
+		{"FieldMap", func(s *ScraperSpec, p string) { s.FieldMap["title"] = p }},
+		{"SearchFieldMap", func(s *ScraperSpec, p string) { s.SearchFieldMap = map[string]string{"title": p} }},
+		{"ArtworkMap", func(s *ScraperSpec, p string) { s.ArtworkMap = map[string]string{"poster": p} }},
+		{"SearchArtworkMap", func(s *ScraperSpec, p string) { s.SearchArtworkMap = map[string]string{"poster": p} }},
+		{"ItemFieldMap", func(s *ScraperSpec, p string) {
+			s.ItemLookupTemplate = "/item/{id}"
+			s.ItemFieldMap = map[string]string{"title": p}
+		}},
+		{"ItemArtworkMap", func(s *ScraperSpec, p string) {
+			s.ItemLookupTemplate = "/item/{id}"
+			s.ItemArtworkMap = map[string]string{"poster": p}
+		}},
+		{"Key", func(s *ScraperSpec, p string) { s.Children[0].Key = p }},
+		{"Label", func(s *ScraperSpec, p string) { s.Children[0].Label = p }},
+		{"Sequence", func(s *ScraperSpec, p string) { s.Children[0].Sequence = p }},
+		{"Index", func(s *ScraperSpec, p string) { s.Children[0].Index = p }},
+		{"Year", func(s *ScraperSpec, p string) { s.Children[0].Year = p }},
+		{"Artwork", func(s *ScraperSpec, p string) { s.Children[0].Artwork = p }},
+	}
+	for _, position := range positions {
+		for _, path := range []string{" $ ", "$[?type=a]", "rows[?type=a]", "rows[?type=a].name"} {
+			t.Run(position.name+"/"+path, func(t *testing.T) {
+				bundle := childListingBundle(child)
+				position.set(&bundle.Scrapers[0], path)
+				wantBundleError(t, bundle, position.name+" path")
+				wantBundleError(t, bundle, "allowed only in CandidatesPath and ItemsPath")
+			})
+		}
+	}
+	for _, path := range []string{"$.a", "a.$", "a[?b=c].d", "a[?=x]", "a[?]"} {
+		t.Run("CandidatesPath/"+path, func(t *testing.T) {
+			bundle := childListingBundle(child)
+			bundle.Scrapers[0].CandidatesPath = path
+			wantBundleError(t, bundle, "CandidatesPath must be a non-empty JSON path")
 		})
 	}
 }

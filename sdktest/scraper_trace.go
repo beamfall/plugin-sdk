@@ -50,8 +50,9 @@ type TraceInput struct {
 	// resolve against. Nil resolves nothing (every mapped value is omitted).
 	LookupDoc map[string]any
 	// SearchDoc is the decoded JSON search response CandidatesPath resolves the
-	// candidate array from. Nil compiles no candidates.
-	SearchDoc map[string]any
+	// candidate array from. It can be a JSON object or a bare array. Nil
+	// compiles no candidates.
+	SearchDoc any
 	// EntityDocs supplies the referenced documents of EntityMaps that declare a
 	// LookupTemplate, keyed by that template with {id} replaced by the
 	// element's LookupIDPath value ("/person/101"). Such a map resolves
@@ -423,7 +424,7 @@ func resolvePath(doc map[string]any, path string) (string, bool) {
 }
 
 // resolveArray walks a response path to an array of JSON objects.
-func resolveArray(doc map[string]any, path string) ([]map[string]any, bool) {
+func resolveArray(doc any, path string) ([]map[string]any, bool) {
 	if path == "" || doc == nil {
 		return nil, false
 	}
@@ -448,8 +449,8 @@ func resolveArray(doc map[string]any, path string) ([]map[string]any, bool) {
 
 // resolveNode walks the documented JSON path grammar: dot-separated segments,
 // each an object key or, on an array, a zero-based index (data.0.name); a key
-// may carry a predicate selecting the first array element whose keys match
-// every comma-separated condition (results[iso_3166_1=US].rating).
+// may carry a predicate selecting the first match or filtering all matches.
+// The explicit root may also carry a filter-all predicate.
 func resolveNode(doc any, path string) (any, bool) {
 	segments, ok := jsonpath.Parse(path)
 	if !ok {
@@ -457,53 +458,79 @@ func resolveNode(doc any, path string) (any, bool) {
 	}
 	cur := doc
 	for _, segment := range segments {
-		switch node := cur.(type) {
-		case map[string]any:
-			value, ok := node[segment.Key]
+		if segment.Key != "$" {
+			if _, array := cur.([]any); array && len(segment.Conditions) != 0 {
+				return nil, false
+			}
+			cur, ok = pathValue(cur, segment.Key)
 			if !ok {
 				return nil, false
 			}
-			if len(segment.Conditions) != 0 {
-				if value, ok = selectByPredicate(value, segment.Conditions); !ok {
-					return nil, false
-				}
-			}
-			cur = value
-		case []any:
-			index, err := strconv.Atoi(segment.Key)
-			if len(segment.Conditions) != 0 || err != nil || index < 0 || index >= len(node) {
+		}
+		if len(segment.Conditions) != 0 {
+			cur, ok = selectByPredicate(cur, segment)
+			if !ok {
 				return nil, false
 			}
-			cur = node[index]
-		default:
-			return nil, false
 		}
 	}
 	return cur, true
 }
 
-func selectByPredicate(node any, conditions [][2]string) (any, bool) {
+func pathValue(node any, key string) (any, bool) {
+	switch node := node.(type) {
+	case map[string]any:
+		value, ok := node[key]
+		return value, ok
+	case []any:
+		index, err := strconv.Atoi(key)
+		if err == nil && index >= 0 && index < len(node) {
+			return node[index], true
+		}
+	}
+	return nil, false
+}
+
+func selectByPredicate(node any, segment jsonpath.Segment) (any, bool) {
 	elements, ok := node.([]any)
 	if !ok {
 		return nil, false
 	}
+	var matches []any
 	for _, element := range elements {
 		object, ok := element.(map[string]any)
-		if !ok {
+		if !ok || !matchesPredicate(object, segment.Conditions) {
 			continue
 		}
-		matched := true
-		for _, condition := range conditions {
-			if got, ok := stringifyScalar(object[condition[0]]); !ok || got != condition[1] {
-				matched = false
-				break
-			}
-		}
-		if matched {
+		if !segment.FilterAll {
 			return element, true
 		}
+		matches = append(matches, element)
+	}
+	if segment.FilterAll {
+		return matches, true
 	}
 	return nil, false
+}
+
+func matchesPredicate(row map[string]any, conditions [][2]string) bool {
+	for _, condition := range conditions {
+		name, want := condition[0], condition[1]
+		value, exists := row[name]
+		if !exists {
+			value = row
+			for key := range strings.SplitSeq(name, ".") {
+				value, exists = pathValue(value, key)
+				if !exists {
+					return false
+				}
+			}
+		}
+		if got, ok := stringifyScalar(value); !ok || got != want {
+			return false
+		}
+	}
+	return true
 }
 
 // stringifyScalar renders a JSON scalar as its string value. An integral number

@@ -31,7 +31,7 @@ var (
 	hintPlaceholderMarker = regexp.MustCompile(`(?i:\{hint\.|(?:^|[?&=/+#])hint\.[[:alnum:]_.-]*\})`)
 	// referencePlaceholderPattern matches a {ref.<name>:<path>} map-path
 	// placeholder reading a declared ReferenceDocument.
-	referencePlaceholderPattern = regexp.MustCompile(`\{ref\.([^{}:]*):[^{}]*\}`)
+	referencePlaceholderPattern = regexp.MustCompile(`\{ref\.([^{}:]*):([^{}]*)\}`)
 	// sidecarExtPattern is the InteractiveSidecars contract: a lowercase
 	// extension with no dot (bundle.go doc).
 	sidecarExtPattern = regexp.MustCompile(`^[a-z0-9]+$`)
@@ -606,6 +606,9 @@ func ValidateBundle(bundle Bundle) error {
 		if scraper.SearchTemplate == "" && (scraper.SearchFieldMap != nil || scraper.SearchArtworkMap != nil) {
 			return fmt.Errorf("plugin %s: scraper %q declares search maps without a search template", bundle.ID, scraper.ID)
 		}
+		if err := validateScraperResponsePaths(scraper); err != nil {
+			return fmt.Errorf("plugin %s: scraper %q: %w", bundle.ID, scraper.ID, err)
+		}
 		for _, fieldMap := range []map[string]string{scraper.FieldMap, scraper.SearchFieldMap} {
 			for key := range fieldMap {
 				if _, err := classifyMediaFieldKey(key, mediaFields); err != nil {
@@ -645,6 +648,9 @@ func ValidateBundle(bundle Bundle) error {
 		for _, entityMap := range scraper.EntityMaps {
 			if !kinds[entityMap.Kind] {
 				return fmt.Errorf("plugin %s: scraper %q entity map targets undeclared kind %q", bundle.ID, scraper.ID, entityMap.Kind)
+			}
+			if err := validateEntityMapResponsePaths(entityMap); err != nil {
+				return fmt.Errorf("plugin %s: scraper %q entity map for kind %q: %w", bundle.ID, scraper.ID, entityMap.Kind, err)
 			}
 			if err := validateContainerMapExtras(bundle, scraper, entityMap); err != nil {
 				return fmt.Errorf("plugin %s: scraper %q: %w", bundle.ID, scraper.ID, err)
@@ -1270,6 +1276,9 @@ func validateReferenceDocuments(scraper ScraperSpec, configFields map[string]boo
 				if _, ok := scraper.ReferenceDocuments[match[1]]; !ok {
 					return fmt.Errorf("map entry %q references undeclared reference document %q", key, match[1])
 				}
+				if err := validateNonListPath("reference document path", match[2]); err != nil {
+					return fmt.Errorf("map entry %q: %w", key, err)
+				}
 			}
 		}
 	}
@@ -1328,11 +1337,13 @@ func validateChildListing(child ChildListing, levels map[string]bool) error {
 	case child.MaxItems < 0 || child.MaxItems > 500:
 		return errors.New("listing MaxItems must be between 0 and 500")
 	}
+	if err := validateJSONPath("ItemsPath", child.ItemsPath); err != nil {
+		return err
+	}
 	for _, field := range []struct {
 		name, path string
 		optional   bool
 	}{
-		{"ItemsPath", child.ItemsPath, false},
 		{"Key", child.Key, false},
 		{"Label", child.Label, false},
 		{"Sequence", child.Sequence, true},
@@ -1343,9 +1354,95 @@ func validateChildListing(child ChildListing, levels map[string]bool) error {
 		if field.optional && field.path == "" {
 			continue
 		}
-		if _, ok := jsonpath.Parse(field.path); !ok {
-			return fmt.Errorf("%s must be a non-empty JSON path", field.name)
+		if err := validateNonListPath(field.name, field.path); err != nil {
+			return err
 		}
+		if err := validateJSONPath(field.name, field.path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateScraperResponsePaths(scraper ScraperSpec) error {
+	if scraper.CandidatesPath != "" {
+		if err := validateJSONPath("CandidatesPath", scraper.CandidatesPath); err != nil {
+			return err
+		}
+	}
+	if scraper.Login != nil {
+		if err := validateNonListPath("Login.TokenPath", scraper.Login.TokenPath); err != nil {
+			return err
+		}
+	}
+	if err := validateNonListPath("CandidateIDPath", scraper.CandidateIDPath); err != nil {
+		return err
+	}
+	if err := validateNonListPath("ArchiveBackfillGUIDPath", scraper.ArchiveBackfillGUIDPath); err != nil {
+		return err
+	}
+	return validateNonListPathMaps(
+		namedPathMap{"FieldMap", scraper.FieldMap},
+		namedPathMap{"ArtworkMap", scraper.ArtworkMap},
+		namedPathMap{"SearchFieldMap", scraper.SearchFieldMap},
+		namedPathMap{"SearchArtworkMap", scraper.SearchArtworkMap},
+		namedPathMap{"ItemFieldMap", scraper.ItemFieldMap},
+		namedPathMap{"ItemArtworkMap", scraper.ItemArtworkMap},
+		namedPathMap{"LookupByIDRecordIDPaths", scraper.LookupByIDRecordIDPaths},
+	)
+}
+
+func validateEntityMapResponsePaths(entityMap EntityMap) error {
+	for _, field := range []struct{ name, path string }{
+		{"Path", entityMap.Path},
+		{"NamePath", entityMap.NamePath},
+		{"ArtworkPath", entityMap.ArtworkPath},
+		{"ParentNamePath", entityMap.ParentNamePath},
+		{"LookupIDPath", entityMap.LookupIDPath},
+		{"TitlePath", entityMap.TitlePath},
+	} {
+		if err := validateNonListPath(field.name, field.path); err != nil {
+			return err
+		}
+	}
+	for path := range entityMap.ElementFilter {
+		if err := validateNonListPath("ElementFilter key", path); err != nil {
+			return err
+		}
+	}
+	return validateNonListPathMaps(
+		namedPathMap{"FieldMap", entityMap.FieldMap},
+		namedPathMap{"ArtworkMap", entityMap.ArtworkMap},
+		namedPathMap{"RelationAttributeMap", entityMap.RelationAttributeMap},
+	)
+}
+
+type namedPathMap struct {
+	name  string
+	paths map[string]string
+}
+
+func validateNonListPathMaps(pathMaps ...namedPathMap) error {
+	for _, pathMap := range pathMaps {
+		for key, path := range pathMap.paths {
+			if err := validateNonListPath(pathMap.name, path); err != nil {
+				return fmt.Errorf("entry %q: %w", key, err)
+			}
+		}
+	}
+	return nil
+}
+
+func validateNonListPath(name, path string) error {
+	if jsonpath.UsesListSyntax(path) {
+		return fmt.Errorf("%s path %q uses $ or a filter-all predicate, which is allowed only in CandidatesPath and ItemsPath", name, path)
+	}
+	return nil
+}
+
+func validateJSONPath(name, path string) error {
+	if _, ok := jsonpath.Parse(path); !ok {
+		return fmt.Errorf("%s must be a non-empty JSON path with any filter-all predicate in the last segment, got %q", name, path)
 	}
 	return nil
 }

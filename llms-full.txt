@@ -42,6 +42,11 @@ no telemetry.
 | [`catalogindex`](docs/reference/catalogindex.md) | Offline Ed25519 verification and local filtering of the signed plugin catalog index. No network I/O. |
 | [`compatibility`](docs/reference/compatibility.md) | The recorded compatibility matrix: which exact first-party plugin artifact passed conformance against which SDK version, and `Verify` to check a bundle against it. |
 
+Use `$` for a bare JSON array in a scraper's `CandidatesPath` or child listing
+`ItemsPath`. A terminal predicate such as `data.rows[?kind.type=primary]` keeps
+all matching rows in response order. See the [scraper path reference](docs/reference/sdk.md#type-scraperspec)
+for predicate comparisons and scalar mappings.
+
 ## Quick start
 
 A plugin is its own Go module. Require the SDK by tag:
@@ -1561,7 +1566,8 @@ type ChildListing struct {
 	// {parent}, {sequence}, or {index} from the previous row. The first level
 	// cannot use those placeholders.
 	ListTemplate string
-	// ItemsPath identifies the response array in the CandidatesPath dialect.
+	// ItemsPath identifies the response array in the CandidatesPath dialect,
+	// including "$" for a bare array and terminal filter-all predicates.
 	ItemsPath string
 	// Key is the row-relative path to the value substituted as {parent}.
 	Key string
@@ -2704,6 +2710,10 @@ type ScraperSpec struct {
 	// CandidatesPath is the response path of the search results array
 	// ("results" for TMDB, "data" for TVDB, the root field for GraphQL);
 	// FieldMap/ArtworkMap then apply per array element.
+	// Use "$" for a bare response array or append "[?key=value,...]" to an
+	// array key or "$" to keep every matching row in response order. A
+	// filter-all predicate must end the path. Both forms are list-only
+	// syntax shared with ChildListing.ItemsPath.
 	CandidatesPath string
 	// CandidateIDPath is the element-relative path of a candidate's id —
 	// the value a chosen candidate feeds back into LookupTemplate's {id}.
@@ -2719,9 +2729,13 @@ type ScraperSpec struct {
 	// array element whose key equals value; value may be a literal or a
 	// {config.<name>} reference. Example:
 	// release_dates.results[iso_3166_1={config.region}].release_dates.0.certification.
-	// A predicate may hold several comma-separated key=value conditions, all
-	// of which must match ([slug=background,recordType=series]). A path may
-	// list alternatives separated by "||": the first alternative that
+	// Both predicate forms may hold several comma-separated key=value
+	// conditions, all of which must match ([slug=background,recordType=series]).
+	// Each condition tries a literal row key first, then a row-relative
+	// dotted path. Values compare as strings: JSON numbers use their numeric
+	// string form (integral values omit the decimal point) and booleans use
+	// "true" or "false". Null, missing values, arrays and objects never match.
+	// A path may list alternatives separated by "||": the first alternative that
 	// resolves wins, so a translated value can fall back to the original
 	// (data.translations.nameTranslations[language={config.language}].name||data.name).
 	// Paths resolve against the lookup document, and — when no SearchFieldMap
@@ -4419,8 +4433,9 @@ type TraceInput struct {
 	// resolve against. Nil resolves nothing (every mapped value is omitted).
 	LookupDoc map[string]any
 	// SearchDoc is the decoded JSON search response CandidatesPath resolves the
-	// candidate array from. Nil compiles no candidates.
-	SearchDoc map[string]any
+	// candidate array from. It can be a JSON object or a bare array. Nil
+	// compiles no candidates.
+	SearchDoc any
 	// EntityDocs supplies the referenced documents of EntityMaps that declare a
 	// LookupTemplate, keyed by that template with {id} replaced by the
 	// element's LookupIDPath value ("/person/101"). Such a map resolves
