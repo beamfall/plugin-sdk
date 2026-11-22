@@ -310,6 +310,12 @@ type Engagement struct {
 	// ResumeMedia overrides the class default (video resumes, audio does
 	// not) for Media in this plugin's Libraries. Nil keeps the default.
 	ResumeMedia *bool
+	// PlaysAlone, when true, says Media in this plugin's Libraries play
+	// alone: a host offers the flag to clients, which start such an item
+	// with a one-item queue and never auto-advance into or out of it. It is
+	// separate from ResumeMedia: resumable Media may still advance through a
+	// queue. False keeps the host's default queue behaviour.
+	PlaysAlone bool
 	// EventKinds are the custom engagement-event kinds this plugin declares on
 	// the append-only engagement event log (the engagement_event table). Each
 	// is an opaque, shape-agnostic string Core only ever stores, groups, and

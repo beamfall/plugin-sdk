@@ -819,6 +819,21 @@ func TestValidateBundleEngagementEventKinds(t *testing.T) {
 	wantBundleError(t, duplicate, `duplicate engagement event kind "o-counter"`)
 }
 
+// TestValidateBundleEngagementPlaysAlone: either value of PlaysAlone
+// validates and the flag survives validation unchanged.
+func TestValidateBundleEngagementPlaysAlone(t *testing.T) {
+	for _, playsAlone := range []bool{false, true} {
+		b := validBundle()
+		b.Engagement.PlaysAlone = playsAlone
+		if err := ValidateBundle(b); err != nil {
+			t.Fatalf("ValidateBundle rejected PlaysAlone=%v: %v", playsAlone, err)
+		}
+		if b.Engagement.PlaysAlone != playsAlone {
+			t.Fatalf("PlaysAlone = %v after validation, want %v", b.Engagement.PlaysAlone, playsAlone)
+		}
+	}
+}
+
 // TestValidateBundleRejectsMalformedLookupByIDTemplate: the LookupByIDTemplate
 // shape check is wired into ValidateBundle, so a malformed declaration fails
 // bundle validation, not only the standalone validator.
