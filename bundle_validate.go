@@ -67,6 +67,9 @@ func ValidateBundle(bundle Bundle) error {
 	if bundle.StoreSensitivity != "" && !slices.Contains(StoreSensitivities(), bundle.StoreSensitivity) {
 		return fmt.Errorf("plugin %s: store sensitivity %q is not in {%s}", bundle.ID, bundle.StoreSensitivity, strings.Join(StoreSensitivities(), ", "))
 	}
+	if bundle.LibraryDefaults.Icon != "" && !slices.Contains(LibraryIcons(), bundle.LibraryDefaults.Icon) {
+		return fmt.Errorf("plugin %s: library icon %q is not in {%s}", bundle.ID, bundle.LibraryDefaults.Icon, strings.Join(LibraryIcons(), ", "))
+	}
 	if bundle.IdentificationPolicy != "" && !slices.Contains(IdentificationPolicies(), bundle.IdentificationPolicy) {
 		return fmt.Errorf("plugin %s: identification policy %q is not in {auto, queue}", bundle.ID, bundle.IdentificationPolicy)
 	}

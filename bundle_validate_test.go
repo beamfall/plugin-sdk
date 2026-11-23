@@ -1078,3 +1078,18 @@ func TestKindPluralDisplayName(t *testing.T) {
 	wantBundleError(t, withKind(EntityKind{DisplayName: L("Album"), PluralDisplayName: LocaleString{"en": "Albums", "fr": " "}}),
 		`kind "album" plural display name: locale map value for "fr" is blank`)
 }
+
+// TestValidateBundleLibraryIcon: an empty or known LibraryDefaults.Icon
+// validates; a name outside LibraryIcons() is rejected.
+func TestValidateBundleLibraryIcon(t *testing.T) {
+	for _, icon := range []string{"", "mic", "note"} {
+		b := validBundle()
+		b.LibraryDefaults.Icon = icon
+		if err := ValidateBundle(b); err != nil {
+			t.Fatalf("ValidateBundle rejected Icon=%q: %v", icon, err)
+		}
+	}
+	b := validBundle()
+	b.LibraryDefaults.Icon = "microphone"
+	wantBundleError(t, b, `library icon "microphone" is not in`)
+}

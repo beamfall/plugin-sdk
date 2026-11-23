@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `LibraryDefaults.Icon` lets a plugin name its default Library icon from the new closed
+  `LibraryIcons()` vocabulary. Hosts also draw it as the placeholder for the plugin's Media without
+  artwork. This is additive, and older cores ignore it.
 - Search candidates and child listings support bare JSON arrays with `$` and terminal
   `[?key=value,...]` filters, including on the root array. Both predicate forms can
   read nested condition fields. This is additive and the SDK version stays at 0.4.7.

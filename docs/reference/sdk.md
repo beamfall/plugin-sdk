@@ -224,6 +224,14 @@ func LayoutRoles() []string
 
 LayoutRoles returns the fixed Layout role vocabulary, named by shape, never domain: "browse" is the home Layout plugin-bound Libraries open on (exactly one per bundle); "detail" Layouts render one entity's page (zero or more, each optionally bound to a declared Entity Kind so clients can pick the right detail Layout for an entity).
 
+## func LibraryIcons
+
+```go
+func LibraryIcons() []string
+```
+
+LibraryIcons returns the closed vocabulary for LibraryDefaults.Icon: the symbol names hosts accept for a Library icon. Which drawing stands for each name is the client's choice.
+
 ## func LocalFileScraperKind
 
 ```go
@@ -1485,6 +1493,11 @@ type LibraryDefaults struct {
 	// Restricted Libraries live behind the Reveal contract by default
 	// (the adult plugin's normal posture).
 	Restricted bool
+	// Icon is the default Library icon for Libraries bound to this plugin, a
+	// name from LibraryIcons(). Hosts also offer it to clients as the
+	// placeholder glyph for this plugin's Media without artwork. Empty keeps
+	// the host's media-class default.
+	Icon string
 }
 ```
 

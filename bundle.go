@@ -15,6 +15,16 @@ var storeSensitivities = []string{"adult", "acquisition-adjacent"}
 // Empty StoreSensitivity means no restriction.
 func StoreSensitivities() []string { return copySlice(storeSensitivities) }
 
+var libraryIcons = []string{
+	"film", "tv", "video", "note", "mic", "broadcast", "headphones", "book",
+	"image", "camera", "people", "star", "heart", "sparkles", "layers", "folder",
+}
+
+// LibraryIcons returns the closed vocabulary for LibraryDefaults.Icon: the
+// symbol names hosts accept for a Library icon. Which drawing stands for each
+// name is the client's choice.
+func LibraryIcons() []string { return copySlice(libraryIcons) }
+
 // FeatureAudioStation is the Bundle.FeatureEligibility capability that lets
 // the first-party audio-station feature operate on Libraries bound to the
 // declaring plugin.
@@ -301,6 +311,11 @@ type LibraryDefaults struct {
 	// Restricted Libraries live behind the Reveal contract by default
 	// (the adult plugin's normal posture).
 	Restricted bool
+	// Icon is the default Library icon for Libraries bound to this plugin, a
+	// name from LibraryIcons(). Hosts also offer it to clients as the
+	// placeholder glyph for this plugin's Media without artwork. Empty keeps
+	// the host's media-class default.
+	Icon string
 }
 
 // Engagement is the bundle's declarative engagement posture (resume
