@@ -21,7 +21,8 @@ plugin cannot declare either Section itself.
 
 ## Failure modes
 
-- A host older than CORE-3331 ignores the Value and shows every class, which is the old behaviour.
+- A core on an older SDK rejects a bundle that sets the Value, so plugins set it only once core pins
+  this release. An empty Value stays valid everywhere.
 
 ## Acceptance evidence
 

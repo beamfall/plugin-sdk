@@ -511,7 +511,7 @@ ValidateVersionLabel checks the VersionLabel contract on a parse result.
 func ValuedSourceKinds() map[string][]string
 ```
 
-ValuedSourceKinds returns the Source kinds that take a Value parameter mapped to their closed value vocabulary. A kind absent from this map takes no Value.
+ValuedSourceKinds returns the Source kinds that require a Value parameter, mapped to their closed value vocabulary. Kinds whose Value is optional are in OptionalValueSourceKinds; a kind in neither map takes no Value.
 
 ## func WatchedByAnyProfileValues
 

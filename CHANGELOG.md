@@ -4,7 +4,8 @@
 
 - A `next-up` Source may set `Value` to `video` or `audio` to list only that media class; empty
   still lists every class. `OptionalValueSourceKinds()` publishes kinds whose Value is optional.
-  This is additive, and cores older than CORE-3331 ignore the Value.
+  This is additive for bundles that leave the Value empty. A bundle that sets one needs a core on
+  this SDK release with CORE-3331's class filter: an older core's validation rejects it.
 - `LibraryDefaults.Icon` lets a plugin name its default Library icon from the new closed
   `LibraryIcons()` vocabulary. Hosts also draw it as the placeholder for the plugin's Media without
   artwork. This is additive, and older cores ignore it.

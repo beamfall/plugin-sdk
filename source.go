@@ -93,8 +93,9 @@ var valuedSourceKinds = map[string][]string{
 	"directory":              directoryValues,
 }
 
-// ValuedSourceKinds returns the Source kinds that take a Value parameter mapped
-// to their closed value vocabulary. A kind absent from this map takes no Value.
+// ValuedSourceKinds returns the Source kinds that require a Value parameter,
+// mapped to their closed value vocabulary. Kinds whose Value is optional are in
+// OptionalValueSourceKinds; a kind in neither map takes no Value.
 func ValuedSourceKinds() map[string][]string {
 	out := make(map[string][]string, len(valuedSourceKinds))
 	for kind, values := range valuedSourceKinds {
