@@ -13,17 +13,19 @@ const (
 // sourceKindFixtures is an independent contract catalog: adding a Source kind
 // or changing one of its parameter capabilities requires an explicit fixture.
 type sourceKindFixture struct {
-	kind       string
-	values     []string
-	filterable bool
-	entityKind bool
-	seedable   bool
+	kind   string
+	values []string
+	// optionalValues is the vocabulary of a kind whose Value may be empty.
+	optionalValues []string
+	filterable     bool
+	entityKind     bool
+	seedable       bool
 }
 
 var sourceKindFixtures = []sourceKindFixture{
 	{kind: "recently-added", filterable: true},
 	{kind: "continue-watching"},
-	{kind: "next-up"},
+	{kind: "next-up", optionalValues: []string{"video", "audio"}},
 	{kind: "recently-played"},
 	{kind: "most-played"},
 	{kind: "all-items", filterable: true},
@@ -140,6 +142,33 @@ func TestSourceKindFixtureSubsets(t *testing.T) {
 		}
 		if _, present := valued[fixture.kind]; !present {
 			t.Errorf("ValuedSourceKinds() is missing fixture kind %q", fixture.kind)
+		}
+	}
+
+	optional := OptionalValueSourceKinds()
+	for kind, values := range optional {
+		fixture, covered := fixtures[kind]
+		if !known[kind] {
+			t.Errorf("OptionalValueSourceKinds() contains orphan %q", kind)
+		} else if !covered || len(fixture.optionalValues) == 0 {
+			t.Errorf("OptionalValueSourceKinds() unexpectedly contains %q", kind)
+		}
+		if _, both := valued[kind]; both {
+			t.Errorf("%q is in both ValuedSourceKinds() and OptionalValueSourceKinds()", kind)
+		}
+		if slices.Contains(values, "") {
+			t.Errorf("OptionalValueSourceKinds()[%q] lists the empty value", kind)
+		}
+		if covered && !slices.Equal(values, fixture.optionalValues) {
+			t.Errorf("OptionalValueSourceKinds()[%q] = %v, want fixture values %v", kind, values, fixture.optionalValues)
+		}
+	}
+	for _, fixture := range sourceKindFixtures {
+		if len(fixture.optionalValues) == 0 {
+			continue
+		}
+		if _, present := optional[fixture.kind]; !present {
+			t.Errorf("OptionalValueSourceKinds() is missing fixture kind %q", fixture.kind)
 		}
 	}
 }

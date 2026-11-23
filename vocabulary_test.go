@@ -37,6 +37,17 @@ func TestVocabularyAccessorsReturnCopies(t *testing.T) {
 	if _, ok := next["extra"]; ok {
 		t.Fatal("mutating returned ValuedSourceKinds map changed SDK vocabulary")
 	}
+
+	optional := OptionalValueSourceKinds()
+	optional["next-up"][0] = "mutated"
+	optional["extra"] = []string{"value"}
+	nextOptional := OptionalValueSourceKinds()
+	if nextOptional["next-up"][0] == "mutated" {
+		t.Fatal("mutating returned OptionalValueSourceKinds nested slice changed SDK vocabulary")
+	}
+	if _, ok := nextOptional["extra"]; ok {
+		t.Fatal("mutating returned OptionalValueSourceKinds map changed SDK vocabulary")
+	}
 }
 
 func TestPermissionPolicyCoversClosedVocabulary(t *testing.T) {

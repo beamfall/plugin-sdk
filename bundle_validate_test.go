@@ -228,6 +228,8 @@ func TestValidateBundleSourceParameterCombinations(t *testing.T) {
 						source.Value = "fixture-value"
 						if len(fixture.values) > 0 {
 							source.Value = fixture.values[0]
+						} else if len(fixture.optionalValues) > 0 {
+							source.Value = fixture.optionalValues[0]
 						}
 					}
 					if fieldFiltersPresent {
@@ -243,7 +245,7 @@ func TestValidateBundleSourceParameterCombinations(t *testing.T) {
 						source.Seed = "fixture-seed"
 					}
 
-					wantValid := valuePresent == (len(fixture.values) > 0)
+					wantValid := valuePresent == (len(fixture.values) > 0) || len(fixture.optionalValues) > 0
 					wantValid = wantValid && (!fieldFiltersPresent || fixture.filterable)
 					wantValid = wantValid && (!entityFilterPresent || fixture.filterable)
 					wantValid = wantValid && entityKindPresent == fixture.entityKind
@@ -282,6 +284,23 @@ func TestValidateBundleSourceParameterErrors(t *testing.T) {
 						source := fixture.canonicalSource()
 						source.Value = value
 						wantBundleError(t, sourceFixtureBundle(source), `source kind "`+fixture.kind+`" requires a value`)
+					})
+				}
+			} else if len(fixture.optionalValues) > 0 {
+				for _, value := range append([]string{""}, fixture.optionalValues...) {
+					t.Run("value/"+value, func(t *testing.T) {
+						source := fixture.canonicalSource()
+						source.Value = value
+						if err := ValidateBundle(sourceFixtureBundle(source)); err != nil {
+							t.Fatalf("ValidateBundle rejected allowed value %q: %v", value, err)
+						}
+					})
+				}
+				for _, value := range []string{"image", " video", "not-a-source-value"} {
+					t.Run("value/reject/"+value, func(t *testing.T) {
+						source := fixture.canonicalSource()
+						source.Value = value
+						wantBundleError(t, sourceFixtureBundle(source), `source kind "`+fixture.kind+`" takes an empty value or one in`)
 					})
 				}
 			} else {

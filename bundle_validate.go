@@ -1115,6 +1115,10 @@ func validateSource(source SourceSpec) error {
 		if !slices.Contains(allowed, source.Value) {
 			return fmt.Errorf("source kind %q requires a value in {%s}", source.Kind, strings.Join(allowed, ", "))
 		}
+	} else if allowed, optional := OptionalValueSourceKinds()[source.Kind]; optional {
+		if source.Value != "" && !slices.Contains(allowed, source.Value) {
+			return fmt.Errorf("source kind %q takes an empty value or one in {%s}", source.Kind, strings.Join(allowed, ", "))
+		}
 	} else if source.Value != "" {
 		return fmt.Errorf("source kind %q does not take a value", source.Kind)
 	}

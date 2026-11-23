@@ -1045,6 +1045,14 @@ func MediaSubtitleOrdinals() []string
 
 MediaSubtitleOrdinals returns the structural ordinal names a MediaSubtitle placeholder may use besides declared Media fields. They mirror ParsedMedia's Sequence, Index and IndexEnd.
 
+## func OptionalValueSourceKinds
+
+```go
+func OptionalValueSourceKinds() map[string][]string
+```
+
+OptionalValueSourceKinds returns the Source kinds whose Value parameter is optional, mapped to their closed value vocabulary. An empty Value on these kinds means unnarrowed: "next-up" with no Value lists every media class, and with "video" or "audio" lists only that class. No kind is in both this map and ValuedSourceKinds.
+
 ## func OrphanPolicies
 
 ```go
@@ -3043,7 +3051,9 @@ type SourceSpec struct {
 	Seed string
 	// Value selects the closed vocabulary entry for a valued Source
 	// (ValuedSourceKinds): a predicate band or directory query shape. Required
-	// and validated on those kinds; rejected on every other kind, like Seed.
+	// and validated on those kinds. On OptionalValueSourceKinds it is optional
+	// and validated when set (the "next-up" media class). Rejected on every
+	// other kind, like Seed.
 	Value string
 }
 ```

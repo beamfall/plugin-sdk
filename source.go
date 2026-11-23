@@ -103,6 +103,25 @@ func ValuedSourceKinds() map[string][]string {
 	return out
 }
 
+var nextUpValues = []string{"video", "audio"}
+
+var optionalValueSourceKinds = map[string][]string{
+	"next-up": nextUpValues,
+}
+
+// OptionalValueSourceKinds returns the Source kinds whose Value parameter is
+// optional, mapped to their closed value vocabulary. An empty Value on these
+// kinds means unnarrowed: "next-up" with no Value lists every media class, and
+// with "video" or "audio" lists only that class. No kind is in both this map
+// and ValuedSourceKinds.
+func OptionalValueSourceKinds() map[string][]string {
+	out := make(map[string][]string, len(optionalValueSourceKinds))
+	for kind, values := range optionalValueSourceKinds {
+		out[kind] = copySlice(values)
+	}
+	return out
+}
+
 // SourceSpec is the canonical declarative Source reference.
 type SourceSpec struct {
 	Kind string
@@ -134,7 +153,9 @@ type SourceSpec struct {
 	Seed string
 	// Value selects the closed vocabulary entry for a valued Source
 	// (ValuedSourceKinds): a predicate band or directory query shape. Required
-	// and validated on those kinds; rejected on every other kind, like Seed.
+	// and validated on those kinds. On OptionalValueSourceKinds it is optional
+	// and validated when set (the "next-up" media class). Rejected on every
+	// other kind, like Seed.
 	Value string
 }
 
