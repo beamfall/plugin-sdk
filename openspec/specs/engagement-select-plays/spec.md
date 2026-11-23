@@ -1,7 +1,8 @@
 # engagement-select-plays Specification
 
 ## Purpose
-TBD - created by archiving change engagement-select-plays. Update Purpose after archive.
+Lets a plugin declare that its Media are picked by title to play, so hosts can tell clients to
+start them on Select rather than open detail, without naming a domain.
 
 ## Requirements
 
