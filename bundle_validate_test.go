@@ -834,6 +834,21 @@ func TestValidateBundleEngagementPlaysAlone(t *testing.T) {
 	}
 }
 
+// TestValidateBundleEngagementSelectPlays: either value of SelectPlays
+// validates and the flag survives validation unchanged.
+func TestValidateBundleEngagementSelectPlays(t *testing.T) {
+	for _, selectPlays := range []bool{false, true} {
+		b := validBundle()
+		b.Engagement.SelectPlays = selectPlays
+		if err := ValidateBundle(b); err != nil {
+			t.Fatalf("ValidateBundle rejected SelectPlays=%v: %v", selectPlays, err)
+		}
+		if b.Engagement.SelectPlays != selectPlays {
+			t.Fatalf("SelectPlays = %v after validation, want %v", b.Engagement.SelectPlays, selectPlays)
+		}
+	}
+}
+
 // TestValidateBundleRejectsMalformedLookupByIDTemplate: the LookupByIDTemplate
 // shape check is wired into ValidateBundle, so a malformed declaration fails
 // bundle validation, not only the standalone validator.

@@ -924,6 +924,12 @@ type Engagement struct {
 	// separate from ResumeMedia: resumable Media may still advance through a
 	// queue. False keeps the host's default queue behaviour.
 	PlaysAlone bool
+	// SelectPlays, when true, says Media in this plugin's Libraries are
+	// picked by title to play at once, such as songs to sing: a host offers
+	// the flag to clients, which start such an item on Select rather than
+	// opening its detail, and may draw it as a titled row or tile. False
+	// keeps the client's default Select behaviour.
+	SelectPlays bool
 	// EventKinds are the custom engagement-event kinds this plugin declares on
 	// the append-only engagement event log (the engagement_event table). Each
 	// is an opaque, shape-agnostic string Core only ever stores, groups, and
