@@ -28,6 +28,7 @@ import (
 
 var recognizedLibraryDefaults = map[string]bool{
 	"Restricted": true,
+	"Icon":       true,
 }
 
 // ParseVector is one golden filename-parse case: a path + probe in, the
