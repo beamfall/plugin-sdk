@@ -1,7 +1,8 @@
 # source-optional-value Specification
 
 ## Purpose
-TBD - created by archiving change next-up-media-class-value. Update Purpose after archive.
+Lets a `next-up` Source narrow itself to one media class through its Value, so a plugin can offer a
+next-up row for audio or video alone while an empty Value keeps every class.
 
 ## Requirements
 

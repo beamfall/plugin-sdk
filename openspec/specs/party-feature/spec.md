@@ -1,7 +1,9 @@
 # party-feature Specification
 
 ## Purpose
-TBD - created by archiving change party-feature-and-terms. Update Purpose after archive.
+Lets a plugin offer core's generic party session (ADR-0237) through `FeatureEligibility` and name
+the session's parts in its own words through `Bundle.PartyTerms`, so core stays free of
+karaoke-specific wording.
 
 ## Requirements
 
