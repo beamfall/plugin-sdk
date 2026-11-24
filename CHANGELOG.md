@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `FeatureParty` (`"party"`) joins `FeatureEligibilityCapabilities()`: a plugin that lists it lets
+  core run a party session over its Libraries (ADR-0237). Optional `Bundle.PartyTerms` names the
+  party's parts as locale maps (party, participant and participants, request and requests, stage);
+  unset terms mean the host's neutral words. Declaring `PartyTerms` requires `FeatureParty`, and a
+  plural needs its singular. Additive; a bundle that declares either needs a core on this release.
 - A `next-up` Source may set `Value` to `video` or `audio` to list only that media class; empty
   still lists every class. `OptionalValueSourceKinds()` publishes kinds whose Value is optional.
   This is additive for bundles that leave the Value empty. A bundle that sets one needs a core on

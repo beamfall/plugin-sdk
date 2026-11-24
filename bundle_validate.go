@@ -89,6 +89,9 @@ func ValidateBundle(bundle Bundle) error {
 		}
 		features[feature] = true
 	}
+	if err := validatePartyTerms(bundle.PartyTerms, features[FeatureParty]); err != nil {
+		return fmt.Errorf("plugin %s: party terms: %w", bundle.ID, err)
+	}
 	mediaClasses := map[string]bool{}
 	for _, class := range bundle.MediaClasses {
 		if class != "video" && class != "audio" && class != "image" {
@@ -1160,6 +1163,33 @@ func validateAttribution(a *Attribution) error {
 	u, err := url.Parse(a.URL)
 	if err != nil || u.Scheme != "https" || u.Host == "" {
 		return fmt.Errorf("link %q must be an absolute https URL", a.URL)
+	}
+	return nil
+}
+
+func validatePartyTerms(terms *PartyTerms, partyEligible bool) error {
+	if terms == nil {
+		return nil
+	}
+	if !partyEligible {
+		return fmt.Errorf("declared without feature eligibility %q", FeatureParty)
+	}
+	for _, term := range []struct {
+		name  string
+		value LocaleString
+	}{
+		{"party", terms.Party}, {"participant", terms.Participant}, {"participants", terms.Participants},
+		{"request", terms.Request}, {"requests", terms.Requests}, {"stage", terms.Stage},
+	} {
+		if err := validateLocaleString(term.value); err != nil {
+			return fmt.Errorf("%s: %w", term.name, err)
+		}
+	}
+	if len(terms.Participants) > 0 && len(terms.Participant) == 0 {
+		return fmt.Errorf("participants is declared without participant")
+	}
+	if len(terms.Requests) > 0 && len(terms.Request) == 0 {
+		return fmt.Errorf("requests is declared without request")
 	}
 	return nil
 }

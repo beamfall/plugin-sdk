@@ -804,6 +804,12 @@ const FeatureAudioStation = "audio-station"
 FeatureAudioStation is the Bundle.FeatureEligibility capability that lets the first-party audio-station feature operate on Libraries bound to the declaring plugin.
 
 ```go
+const FeatureParty = "party"
+```
+
+FeatureParty is the Bundle.FeatureEligibility capability that lets core run a party session (a shared request rotation with guests and stage screens, ADR-0237) over Libraries bound to the declaring plugin.
+
+```go
 const MaxImportPageItems = 256
 ```
 
@@ -1497,6 +1503,10 @@ type Bundle struct {
 	// operate on Libraries bound to this plugin. Entries are closed SDK
 	// vocabulary; plugin data remains in the bundle.
 	FeatureEligibility []string
+	// PartyTerms names a party session's parts in this plugin's words. Nil,
+	// or any unset term, means the host's neutral words. Declaring it
+	// requires FeatureParty in FeatureEligibility.
+	PartyTerms *PartyTerms `json:",omitempty"`
 }
 ```
 
@@ -2524,6 +2534,25 @@ type ParsedTextField struct {
 ```
 
 ParsedTextField is a plugin parser's best-effort text Media field derived from file-local metadata.
+
+## type PartyTerms
+
+```go
+type PartyTerms struct {
+	// Party is the name of the session itself.
+	Party LocaleString `json:",omitempty"`
+	// Participant and Participants name one person taking turns, and several.
+	Participant  LocaleString `json:",omitempty"`
+	Participants LocaleString `json:",omitempty"`
+	// Request and Requests name one queued item, and several.
+	Request  LocaleString `json:",omitempty"`
+	Requests LocaleString `json:",omitempty"`
+	// Stage names the screen that shows the current turn.
+	Stage LocaleString `json:",omitempty"`
+}
+```
+
+PartyTerms names the parts of core's generic party session (ADR-0237) for one plugin, as locale maps: a karaoke plugin calls the party "Karaoke party", a participant a "Singer" and a request a "Song". Hosts use these nouns in their own copy and phrase counts themselves.
 
 ## type PermissionPolicy
 
