@@ -8,7 +8,7 @@
 
 - [x] 2.1 Unit tests: `party` validates; terms need an English anchor, plurals need singulars, terms need `party`
 - [x] 2.2 `openspec validate --all --strict` passes
-- [ ] 2.3 `script/gate.sh` passes on the branch head
+- [x] 2.3 `script/gate.sh` passes on the branch head
 
 ## 3. Close
 
