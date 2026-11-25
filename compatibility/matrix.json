@@ -11,7 +11,7 @@
   },
   {
     "consumerID": "audiobook",
-    "consumerVersion": "0.1.20",
+    "consumerVersion": "0.1.4",
     "consumerRevision": "2d265489a77fa0c54e61a00e575b762ecbaef343",
     "consumerDigest": "sha256:42b06c5c09c551ba974d879cd36ddcb2cec910223909435a763bc702795049d2",
     "sdkVersion": "0.4.7",
@@ -31,7 +31,7 @@
   },
   {
     "consumerID": "filmtv",
-    "consumerVersion": "0.1.29",
+    "consumerVersion": "0.1.4",
     "consumerRevision": "04a403049fdf8f8cd45b183135a8b7ad90e5123d",
     "consumerDigest": "sha256:29c150c00f84d6762a243c81cadad38281770416bd9b6cfb816caaeb68739e3f",
     "sdkVersion": "0.4.7",
@@ -41,7 +41,7 @@
   },
   {
     "consumerID": "karaoke",
-    "consumerVersion": "0.1.16",
+    "consumerVersion": "0.1.0",
     "consumerRevision": "63d56fdaac285eefef634a40794c08c5fac273d6",
     "consumerDigest": "sha256:04316ff9cd5b5b3c34058d678bababdc170341ca23d9857fe13c1c3eb6e045cc",
     "sdkVersion": "0.4.7",
@@ -61,7 +61,7 @@
   },
   {
     "consumerID": "music",
-    "consumerVersion": "0.1.22",
+    "consumerVersion": "0.1.5",
     "consumerRevision": "8eb3400abbf00b71f5424f1bf9209212c959e8b9",
     "consumerDigest": "sha256:24f815ef0e5bb91097f3f4594158c555e1c25b417a886e2a4ca401d2fab2e50e",
     "sdkVersion": "0.4.7",
