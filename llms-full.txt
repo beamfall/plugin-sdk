@@ -2417,6 +2417,12 @@ ClassifyMediaFieldKey resolves one FieldMap/ImpliedMediaFields key for a validat
 ```go
 type ParseContext struct {
 	DirectoryMediaFileCount DirectoryMediaFileCount
+	// FamilyScope is the Library's plugin-declared family scope (a Value from
+	// Bundle.FamilyScopes), or "" when absent or unknown. It is opaque plugin
+	// data stored on the Library row and forwarded verbatim by scan; parsers
+	// MUST treat "" or unrecognized values as unknown and preserve their legacy
+	// Parse fallback.
+	FamilyScope string
 }
 ```
 
@@ -2754,9 +2760,15 @@ type ScraperSpec struct {
 	// fetched document directly. http-json only; requires LookupTemplate, and
 	// every key must name a LookupByIDTemplate provider.
 	LookupByIDRecordIDPaths map[string]string
-	// SearchTemplate builds the free-text identification request; {query}
-	// and the fingerprint variables substitute (a fingerprint-driven search
-	// queries by content identity instead of free text). {page} substitutes
+	// SearchTemplate builds the free-text identification request; {query},
+	// {query.lucene}, and the fingerprint variables substitute (a
+	// fingerprint-driven search queries by content identity instead of free
+	// text). {query.lucene} escapes the free-text query for Apache Lucene query
+	// parser syntax (prefixing \, +, -, !, (, ), :, ^, [, ], ", {, }, ~, *, ?,
+	// |, &, and / with \) before applying the same transport escaping as
+	// {query} (net/url.QueryEscape in a URL query, path-escaping in a URL path,
+	// or GraphQL string escaping in http-graphql); it is only valid in
+	// SearchTemplate. {page} substitutes
 	// the one-based search page; {config.<name>} substitutes a declared
 	// Bundle.ConfigFields entry. {year} substitutes the year identification
 	// parsed or knows for the item; when the year is unknown, a query
@@ -4224,12 +4236,13 @@ AuthPlacement is where a scraper's AuthRef secret rides on a request — the pla
 
 ```go
 type ContextParseVector struct {
-	Name    string
-	Path    string
-	Probe   sdk.ParseProbe
-	Context sdk.ParseContext
-	Want    sdk.ParsedMedia
-	WantOK  bool
+	Name                  string
+	Path                  string
+	Probe                 sdk.ParseProbe
+	Context               sdk.ParseContext
+	FamilyScopeRecognized bool
+	Want                  sdk.ParsedMedia
+	WantOK                bool
 }
 ```
 
@@ -4487,8 +4500,8 @@ TraceContainer is one Container EntityMap's emitted result against the lookup do
 
 ```go
 type TraceInput struct {
-	// Query is the free-text {query} substitution for the search request; empty
-	// compiles no search request.
+	// Query is the free-text {query} / {query.lucene} substitution for the
+	// search request; empty compiles no search request.
 	Query string
 	// Hints supplies plugin-chosen search values as in sdk.ParsedMedia.Hints.
 	// Pass the raw values. The trace escapes them when substituting into a URL query.

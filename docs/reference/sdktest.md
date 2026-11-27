@@ -223,12 +223,13 @@ AuthPlacement is where a scraper's AuthRef secret rides on a request — the pla
 
 ```go
 type ContextParseVector struct {
-	Name    string
-	Path    string
-	Probe   sdk.ParseProbe
-	Context sdk.ParseContext
-	Want    sdk.ParsedMedia
-	WantOK  bool
+	Name                  string
+	Path                  string
+	Probe                 sdk.ParseProbe
+	Context               sdk.ParseContext
+	FamilyScopeRecognized bool
+	Want                  sdk.ParsedMedia
+	WantOK                bool
 }
 ```
 
@@ -486,8 +487,8 @@ TraceContainer is one Container EntityMap's emitted result against the lookup do
 
 ```go
 type TraceInput struct {
-	// Query is the free-text {query} substitution for the search request; empty
-	// compiles no search request.
+	// Query is the free-text {query} / {query.lucene} substitution for the
+	// search request; empty compiles no search request.
 	Query string
 	// Hints supplies plugin-chosen search values as in sdk.ParsedMedia.Hints.
 	// Pass the raw values. The trace escapes them when substituting into a URL query.

@@ -695,6 +695,9 @@ func ValidateBundle(bundle Bundle) error {
 				if hintPlaceholderMarker.MatchString(entityMap.LookupTemplate) {
 					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q reference lookup template uses a hint placeholder outside SearchTemplate", bundle.ID, scraper.ID, entityMap.Kind)
 				}
+				if strings.Contains(entityMap.LookupTemplate, "{query.lucene}") {
+					return fmt.Errorf("plugin %s: scraper %q entity map for kind %q reference lookup template uses {query.lucene} outside SearchTemplate", bundle.ID, scraper.ID, entityMap.Kind)
+				}
 			} else if entityMap.MaxLookups < 0 {
 				return fmt.Errorf("plugin %s: scraper %q entity map for kind %q max lookups must not be negative", bundle.ID, scraper.ID, entityMap.Kind)
 			}
@@ -1548,6 +1551,9 @@ func validateScraperTemplatePlaceholders(pluginID ID, scraper ScraperSpec, confi
 		hasHint := hintPlaceholderMarker.MatchString(template.value)
 		if hasHint && template.name != "search" {
 			return fmt.Errorf("plugin %s: scraper %q %s template uses a hint placeholder outside SearchTemplate", pluginID, scraper.ID, template.name)
+		}
+		if strings.Contains(template.value, "{query.lucene}") && template.name != "search" {
+			return fmt.Errorf("plugin %s: scraper %q %s template uses {query.lucene} outside SearchTemplate", pluginID, scraper.ID, template.name)
 		}
 		if template.childLevel > 0 {
 			if err := validateChildListPlaceholders(template.value, template.childLevel); err != nil {

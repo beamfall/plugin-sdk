@@ -36,6 +36,9 @@ func (p fakeContextParser) ParseWithContext(path string, probe sdk.ParseProbe, c
 	case sdk.DirectoryMediaFileCountMultiple:
 		legacy.Class = "multiple"
 	}
+	if context.FamilyScope == "tvshows" {
+		legacy.Class = "tvshows"
+	}
 	return legacy, true
 }
 
@@ -107,6 +110,13 @@ func TestHarnessRunsGreenOnConformantInputs(t *testing.T) {
 		{Name: "future context preserves legacy", Path: "a.mp3",
 			Context: sdk.ParseContext{DirectoryMediaFileCount: sdk.DirectoryMediaFileCount("future")},
 			Want:    sdk.ParsedMedia{Title: "a.mp3"}, WantOK: true},
+		{Name: "family scope overrides class", Path: "a.mkv",
+			Context:               sdk.ParseContext{FamilyScope: "tvshows"},
+			FamilyScopeRecognized: true,
+			Want:                  sdk.ParsedMedia{Title: "a.mkv", Class: "tvshows"}, WantOK: true},
+		{Name: "unrecognized family scope preserves legacy", Path: "a.mkv",
+			Context: sdk.ParseContext{FamilyScope: "future-scope"},
+			Want:    sdk.ParsedMedia{Title: "a.mkv"}, WantOK: true},
 		{Name: "empty path refused", Path: "", Want: sdk.ParsedMedia{}, WantOK: false},
 	})
 	sdktest.RunScoreConformance(t, fakeScorer{}, []sdktest.ScoreVector{

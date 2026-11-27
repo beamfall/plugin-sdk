@@ -45,12 +45,13 @@ type ParseVector struct {
 // separate from ParseVector so adding the optional context seam does not alter
 // existing plugin fixture literals.
 type ContextParseVector struct {
-	Name    string
-	Path    string
-	Probe   sdk.ParseProbe
-	Context sdk.ParseContext
-	Want    sdk.ParsedMedia
-	WantOK  bool
+	Name                  string
+	Path                  string
+	Probe                 sdk.ParseProbe
+	Context               sdk.ParseContext
+	FamilyScopeRecognized bool
+	Want                  sdk.ParsedMedia
+	WantOK                bool
 }
 
 // RunConformance asserts a FilenameParser matches its golden vectors and obeys
@@ -131,7 +132,7 @@ func RunContextConformance(t *testing.T, p sdk.ContextFilenameParser, vectors []
 				t.Errorf("ParseWithContext(%q) version label contract: %v", v.Path, err)
 			}
 			count := v.Context.DirectoryMediaFileCount
-			if count != sdk.DirectoryMediaFileCountSingle && count != sdk.DirectoryMediaFileCountMultiple {
+			if count != sdk.DirectoryMediaFileCountSingle && count != sdk.DirectoryMediaFileCountMultiple && !v.FamilyScopeRecognized {
 				legacy, legacyOK := p.Parse(v.Path, v.Probe)
 				if !reflect.DeepEqual(got, legacy) || ok != legacyOK {
 					t.Errorf("ParseWithContext(%q) with absent/unrecognized context = %+v/%v; legacy Parse = %+v/%v",

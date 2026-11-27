@@ -33,6 +33,13 @@ func TestParseContextIsAdditiveAndBounded(t *testing.T) {
 	if absent.DirectoryMediaFileCount != DirectoryMediaFileCountUnknown {
 		t.Fatalf("zero ParseContext count = %q, want unknown", absent.DirectoryMediaFileCount)
 	}
+	if absent.FamilyScope != "" {
+		t.Fatalf("zero ParseContext family scope = %q, want empty", absent.FamilyScope)
+	}
+	scoped := ParseContext{DirectoryMediaFileCount: DirectoryMediaFileCountSingle, FamilyScope: "tvshows"}
+	if scoped.FamilyScope != "tvshows" {
+		t.Fatalf("keyed ParseContext family scope = %q, want tvshows", scoped.FamilyScope)
+	}
 	states := map[DirectoryMediaFileCount]bool{
 		DirectoryMediaFileCountUnknown:  true,
 		DirectoryMediaFileCountSingle:   true,

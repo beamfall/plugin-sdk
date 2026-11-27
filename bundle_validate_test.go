@@ -1112,3 +1112,50 @@ func TestValidateBundleLibraryIcon(t *testing.T) {
 	b.LibraryDefaults.Icon = "microphone"
 	wantBundleError(t, b, `library icon "microphone" is not in`)
 }
+
+func TestValidateBundleLuceneQueryPlaceholder(t *testing.T) {
+	valid := scraperBundle()
+	valid.Scrapers[0].SearchTemplate = "/recording?query=({query.lucene}){hint.artist_clause}&fmt=json"
+	valid.Scrapers[0].CandidatesPath = "recordings"
+	valid.Scrapers[0].CandidateIDPath = "id"
+	if err := ValidateBundle(valid); err != nil {
+		t.Fatalf("ValidateBundle rejected {query.lucene} in http-json SearchTemplate: %v", err)
+	}
+
+	gql := scraperBundle()
+	gql.Scrapers[0].Kind = "http-graphql"
+	gql.Scrapers[0].SearchTemplate = `query{recordings(q:"{query.lucene}"){id}}`
+	gql.Scrapers[0].CandidatesPath = "recordings"
+	gql.Scrapers[0].CandidateIDPath = "id"
+	if err := ValidateBundle(gql); err != nil {
+		t.Fatalf("ValidateBundle rejected {query.lucene} in http-graphql SearchTemplate: %v", err)
+	}
+
+	lookup := scraperBundle()
+	lookup.Scrapers[0].LookupTemplate = "/item/{id}?q={query.lucene}"
+	wantBundleError(t, lookup, "uses {query.lucene} outside SearchTemplate")
+
+	itemLookup := scraperBundle()
+	itemLookup.Scrapers[0].ItemLookupTemplate = "/item/{id}/{sequence}/{index}?q={query.lucene}"
+	wantBundleError(t, itemLookup, "uses {query.lucene} outside SearchTemplate")
+
+	lookupByID := scraperBundle()
+	lookupByID.Scrapers[0].LookupByIDTemplate = map[string]string{"imdb": "/find/{id}?q={query.lucene}"}
+	wantBundleError(t, lookupByID, "uses {query.lucene} outside SearchTemplate")
+
+	entityLookup := scraperBundle()
+	entityLookup.Scrapers[0].EntityMaps = []EntityMap{{
+		Kind: "genre", Relation: "genres", Path: "genres",
+		LookupTemplate: "/genre/{id}?q={query.lucene}", LookupIDPath: "id", MaxLookups: 3,
+	}}
+	wantBundleError(t, entityLookup, "uses {query.lucene} outside SearchTemplate")
+
+	childList := scraperBundle()
+	childList.Scrapers[0].SearchTemplate = "/search?q={query}"
+	childList.Scrapers[0].CandidatesPath = "results"
+	childList.Scrapers[0].CandidateIDPath = "id"
+	childList.Scrapers[0].Children = []ChildListing{{
+		Level: "season", ListTemplate: "/seasons/{id}?q={query.lucene}", ItemsPath: "seasons", Key: "id", Label: "name",
+	}}
+	wantBundleError(t, childList, "uses {query.lucene} outside SearchTemplate")
+}

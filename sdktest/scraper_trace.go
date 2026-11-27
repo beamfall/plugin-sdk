@@ -33,8 +33,8 @@ import (
 // search/lookup identifiers to substitute and the decoded JSON documents the
 // mappings resolve against. No field triggers a network call.
 type TraceInput struct {
-	// Query is the free-text {query} substitution for the search request; empty
-	// compiles no search request.
+	// Query is the free-text {query} / {query.lucene} substitution for the
+	// search request; empty compiles no search request.
 	Query string
 	// Hints supplies plugin-chosen search values as in sdk.ParsedMedia.Hints.
 	// Pass the raw values. The trace escapes them when substituting into a URL query.
@@ -259,6 +259,57 @@ func substituteSearchHints(template string, hints map[string]string) string {
 	return path + "?" + query + template[len(beforeFragment):]
 }
 
+var luceneQueryEscaper = strings.NewReplacer(
+	`\`, `\\`,
+	`+`, `\+`,
+	`-`, `\-`,
+	`!`, `\!`,
+	`(`, `\(`,
+	`)`, `\)`,
+	`:`, `\:`,
+	`^`, `\^`,
+	`[`, `\[`,
+	`]`, `\]`,
+	`"`, `\"`,
+	`{`, `\{`,
+	`}`, `\}`,
+	`~`, `\~`,
+	`*`, `\*`,
+	`?`, `\?`,
+	`|`, `\|`,
+	`&`, `\&`,
+	`/`, `\/`,
+)
+
+func escapeLuceneQuery(query string) string {
+	return luceneQueryEscaper.Replace(query)
+}
+
+var graphQLValueEscaper = strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\r", `\r`, "\t", `\t`, "\f", `\f`)
+
+func substituteLuceneQuery(template, query, method string) string {
+	if !strings.Contains(template, "{query.lucene}") {
+		return template
+	}
+	escaped := escapeLuceneQuery(query)
+	if method != "GET" {
+		return strings.ReplaceAll(template, "{query.lucene}", graphQLValueEscaper.Replace(escaped))
+	}
+	beforeFragment, fragment, hasFragment := strings.Cut(template, "#")
+	path, rawQuery, hasQuery := strings.Cut(beforeFragment, "?")
+	path = strings.ReplaceAll(path, "{query.lucene}", url.PathEscape(escaped))
+	if hasQuery {
+		rawQuery = strings.ReplaceAll(rawQuery, "{query.lucene}", url.QueryEscape(escaped))
+		beforeFragment = path + "?" + rawQuery
+	} else {
+		beforeFragment = path
+	}
+	if hasFragment {
+		return beforeFragment + "#" + fragment
+	}
+	return beforeFragment
+}
+
 func searchRequests(spec sdk.ScraperSpec, input TraceInput, vars map[string]string, method string, auth AuthPlacement) []TraceRequest {
 	if spec.SearchTemplate == "" || input.Query == "" {
 		return nil
@@ -267,6 +318,7 @@ func searchRequests(spec sdk.ScraperSpec, input TraceInput, vars map[string]stri
 	if method == "GET" {
 		template = substituteSearchHints(template, input.Hints)
 	}
+	template = substituteLuceneQuery(template, input.Query, method)
 	pages := spec.MaxPages
 	if pages < 1 {
 		pages = 1

@@ -194,9 +194,15 @@ type ScraperSpec struct {
 	// fetched document directly. http-json only; requires LookupTemplate, and
 	// every key must name a LookupByIDTemplate provider.
 	LookupByIDRecordIDPaths map[string]string
-	// SearchTemplate builds the free-text identification request; {query}
-	// and the fingerprint variables substitute (a fingerprint-driven search
-	// queries by content identity instead of free text). {page} substitutes
+	// SearchTemplate builds the free-text identification request; {query},
+	// {query.lucene}, and the fingerprint variables substitute (a
+	// fingerprint-driven search queries by content identity instead of free
+	// text). {query.lucene} escapes the free-text query for Apache Lucene query
+	// parser syntax (prefixing \, +, -, !, (, ), :, ^, [, ], ", {, }, ~, *, ?,
+	// |, &, and / with \) before applying the same transport escaping as
+	// {query} (net/url.QueryEscape in a URL query, path-escaping in a URL path,
+	// or GraphQL string escaping in http-graphql); it is only valid in
+	// SearchTemplate. {page} substitutes
 	// the one-based search page; {config.<name>} substitutes a declared
 	// Bundle.ConfigFields entry. {year} substitutes the year identification
 	// parsed or knows for the item; when the year is unknown, a query

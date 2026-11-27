@@ -329,3 +329,88 @@ func containsSubstring(reasons []string, sub string) bool {
 	}
 	return false
 }
+
+func TestScraperTraceLuceneQueryPlaceholder(t *testing.T) {
+	mbSpec := sdk.ScraperSpec{
+		ID:              "musicbrainz",
+		Kind:            "http-json",
+		Endpoint:        "https://musicbrainz.org/ws/2",
+		SearchTemplate:  "/recording?query=({query.lucene}){hint.recording_clause}{hint.artist_clause}{hint.album_clause}&fmt=json",
+		CandidatesPath:  "recordings",
+		CandidateIDPath: "id",
+	}
+	RunScraperTraceConformance(t, []ScraperTraceVector{
+		{
+			Name: "smile with unbalanced paren and colon preserves hint clauses",
+			Spec: mbSpec,
+			Input: TraceInput{
+				Query: "Smile :)",
+				Hints: map[string]string{
+					"artist_clause": ` AND artist:"Lily Allen"`,
+					"album_clause":  ` AND release:"Alright, Still"`,
+				},
+			},
+			Want: ScraperTrace{Requests: []TraceRequest{{
+				Role:   "search",
+				Page:   1,
+				Method: "GET",
+				URL:    "https://musicbrainz.org/ws/2/recording?query=(Smile+%5C%3A%5C%29)+AND+artist%3A%22Lily+Allen%22+AND+release%3A%22Alright%2C+Still%22&fmt=json",
+			}}},
+		},
+		{
+			Name:  "part 1 unbalanced paren",
+			Spec:  mbSpec,
+			Input: TraceInput{Query: "Part 1)"},
+			Want: ScraperTrace{Requests: []TraceRequest{{
+				Role:   "search",
+				Page:   1,
+				Method: "GET",
+				URL:    "https://musicbrainz.org/ws/2/recording?query=(Part+1%5C%29)&fmt=json",
+			}}},
+		},
+		{
+			Name:  "all Lucene specials escaped before QueryEscape and placeholder forging prevented",
+			Spec:  mbSpec,
+			Input: TraceInput{Query: `a+b-c!d(e)f:g^h[i]j"k{l}m~n*o?p|q&r/s\t {page}`},
+			Want: ScraperTrace{Requests: []TraceRequest{{
+				Role:   "search",
+				Page:   1,
+				Method: "GET",
+				URL:    "https://musicbrainz.org/ws/2/recording?query=(a%5C%2Bb%5C-c%5C%21d%5C%28e%5C%29f%5C%3Ag%5C%5Eh%5C%5Bi%5C%5Dj%5C%22k%5C%7Bl%5C%7Dm%5C~n%5C%2Ao%5C%3Fp%5C%7Cq%5C%26r%5C%2Fs%5C%5Ct+%5C%7Bpage%5C%7D)&fmt=json",
+			}}},
+		},
+		{
+			Name: "path and fragment handling on GET",
+			Spec: sdk.ScraperSpec{
+				ID:             "path-lucene",
+				Kind:           "http-json",
+				Endpoint:       "https://api.example.test",
+				SearchTemplate: "/find/{query.lucene}?q={query.lucene}#{query.lucene}",
+			},
+			Input: TraceInput{Query: "A:B"},
+			Want: ScraperTrace{Requests: []TraceRequest{{
+				Role:   "search",
+				Page:   1,
+				Method: "GET",
+				URL:    "https://api.example.test/find/A%5C:B?q=A%5C%3AB#{query.lucene}",
+			}}},
+		},
+		{
+			Name: "GraphQL body escapes Lucene syntax",
+			Spec: sdk.ScraperSpec{
+				ID:             "gql-lucene",
+				Kind:           "http-graphql",
+				Endpoint:       "https://api.example.test/graphql",
+				SearchTemplate: `query{search(q:"{query.lucene}"){title}}`,
+			},
+			Input: TraceInput{Query: "Part 1)"},
+			Want: ScraperTrace{Requests: []TraceRequest{{
+				Role:   "search",
+				Page:   1,
+				Method: "POST",
+				URL:    "https://api.example.test/graphql",
+				Body:   `query{search(q:"Part 1\\)"){title}}`,
+			}}},
+		},
+	})
+}

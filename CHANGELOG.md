@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `ScraperSpec.SearchTemplate` supports `{query.lucene}`, which escapes the free-text search query
+  for Apache Lucene query parser syntax before transport escaping.
+- `ParseContext.FamilyScope` carries the Library's plugin-declared family scope (`""` when absent or
+  unknown, preserving legacy `Parse` fallback).
 - `FeatureParty` (`"party"`) joins `FeatureEligibilityCapabilities()`: a plugin that lists it lets
   core run a party session over its Libraries (ADR-0237). Optional `Bundle.PartyTerms` names the
   party's parts as locale maps (party, participant and participants, request and requests, stage);

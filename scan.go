@@ -228,6 +228,12 @@ const (
 // or unrecognized values as unknown and preserve their legacy Parse fallback.
 type ParseContext struct {
 	DirectoryMediaFileCount DirectoryMediaFileCount
+	// FamilyScope is the Library's plugin-declared family scope (a Value from
+	// Bundle.FamilyScopes), or "" when absent or unknown. It is opaque plugin
+	// data stored on the Library row and forwarded verbatim by scan; parsers
+	// MUST treat "" or unrecognized values as unknown and preserve their legacy
+	// Parse fallback.
+	FamilyScope string
 }
 
 // ParseProbe is scan's view of the FFmpeg probe handed to the parser.
